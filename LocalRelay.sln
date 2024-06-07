@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalRelay", "LocalRelay\LocalRelay.csproj", "{04AB8D81-793D-4C06-8827-55971740C045}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{04AB8D81-793D-4C06-8827-55971740C045}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04AB8D81-793D-4C06-8827-55971740C045}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04AB8D81-793D-4C06-8827-55971740C045}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04AB8D81-793D-4C06-8827-55971740C045}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
