@@ -2,14 +2,74 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net8.0</TargetFramework>
+        <SingleProject>true</SingleProject>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AssemblyName>OpenShock.LocalRelay</AssemblyName>
         <RootNamespace>OpenShock.LocalRelay</RootNamespace>
         <Company>OpenShock</Company>
         <AssemblyVersion>1.0.0.0</AssemblyVersion>
+        <EnableDefaultCssItems>false</EnableDefaultCssItems>
+        <ApplicationTitle>ShockOsc</ApplicationTitle>
+        <Version>1.0.0</Version>
+        <SelfContained>true</SelfContained>
+        <Product>LocalRelay</Product>
+
+        <ApplicationIcon>Resources\localrelay-icon.ico</ApplicationIcon>
+        <PackageIcon>Resources\localrelay-icon.png</PackageIcon>
+
+        <ResourceLanguages>en</ResourceLanguages>
+        <SatelliteResourceLanguages>en-US;en</SatelliteResourceLanguages>
+        <IsPackable>false</IsPackable>
+
+        <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+
+        <Configurations>Release-Windows;Debug-Windows;Release-Photino;Debug-Photino;Release-Web;Debug-Web;Debug-WIndows</Configurations>
+
+        <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug-Windows' Or '$(Configuration)' == 'Release-Windows'">
+        <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+        <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+        <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+        <WindowsPackageType>None</WindowsPackageType>
+        <UseMaui>true</UseMaui>
+        <DefineConstants>MAUI</DefineConstants>
+        <StartupObject>OpenShock.LocalRelay.Platforms.Windows.WindowsEntryPoint</StartupObject>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(Configuration)' == 'Debug-Windows' Or '$(Configuration)' == 'Release-Windows'">
+        <PackageReference Include="Microsoft.Maui.Controls" Version="8.0.40"/>
+        <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="8.0.40"/>
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug-Photino' Or '$(Configuration)' == 'Release-Photino'">
+        <TargetFramework>net8.0</TargetFramework>
+        <StartupObject>OpenShock.LocalRelay.Platforms.Photino.PhotinoEntryPoint</StartupObject>
+        <DefineConstants>PHOTINO</DefineConstants>
+        <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(Configuration)' == 'Debug-Photino' Or '$(Configuration)' == 'Release-Photino'">
+        <PackageReference Include="Photino.Blazor" Version="2.7.0"/>
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug-Web' Or '$(Configuration)' == 'Release-Web' ">
+        <TargetFramework>net8.0</TargetFramework>
+        <StartupObject>OpenShock.LocalRelay.Platforms.Web.WebEntryPoint</StartupObject>
+        <DefineConstants>WEB</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Update="wwwroot\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <None Update="Resources\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
 
     <ItemGroup>
         <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.19" />
@@ -22,10 +82,19 @@
         <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1"/>
         <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0"/>
         <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+        <PackageReference Include="CommandLineParser" Version="2.9.1"/>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="8.0.40"/>
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0"/>
+        <PackageReference Include="MudBlazor" Version="6.19.1"/>
+        <PackageReference Include="Semver" Version="2.3.0"/>
+        <PackageReference Include="System.Reactive" Version="6.0.0"/>
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Services\" />
-    </ItemGroup>
+    <PropertyGroup>
+        <ServerGarbageCollection>false</ServerGarbageCollection>
+    </PropertyGroup>
+
 
 </Project>
