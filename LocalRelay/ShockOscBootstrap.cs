@@ -44,6 +44,8 @@ public static class ShockOscBootstrap
 
         services.AddMemoryCache();
 
+        services.AddSingleton<SerialService>();
+
         services.AddSingleton<PipeServerService>();
 
         services.AddSingleton<ConfigManager>();

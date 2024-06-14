@@ -1,0 +1,41 @@
+﻿@using OpenShock.LocalRelay.Services
+@inject SerialService SerialService
+
+@page "/dash/serial"
+
+<MudPap Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: row">
+
+    <MudButton OnClick="RefreshSerialPorts" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Primary" Style="margin-right: 10px;">Refresh Serial Ports</MudButton>
+    <MudSelect Variant="Variant.Outlined" @bind-Value="_selectedSerialPort" Label="Select Serial Port" @bind-Value:after="SelectedSerialPortChanged">
+        @foreach (var port in SerialPorts)
+        {
+            <MudSelectItem Value="@port">@port</MudSelectItem>
+        }
+    </MudSelect>
+    
+    @if (_selectedSerialPort != null)
+    {
+        
+    }
+
+</MudPap>
+
+@code {
+    private string? _selectedSerialPort;
+    private string[] SerialPorts = [];
+
+    protected override void OnInitialized()
+    {
+        RefreshSerialPorts();
+    }
+
+    private void RefreshSerialPorts()
+    {
+        SerialPorts = SerialService.GetSerialPorts();
+    }
+
+    private void SelectedSerialPortChanged()
+    {
+    }
+
+}

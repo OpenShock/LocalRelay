@@ -59,7 +59,7 @@ public static class MauiProgram
 
                         var result = await Application.Current.MainPage!.DisplayAlert(
                             "Close?",
-                            "Do you want to close ShockOSC?",
+                            "Do you want to close LocalRelay?",
                             "Yes",
                             "Cancel");
 
