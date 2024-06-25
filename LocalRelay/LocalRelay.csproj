@@ -10,7 +10,7 @@
         <Company>OpenShock</Company>
         <AssemblyVersion>1.0.0.0</AssemblyVersion>
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
-        <ApplicationTitle>ShockOsc</ApplicationTitle>
+        <ApplicationTitle>LocalRelay</ApplicationTitle>
         <Version>1.0.0</Version>
         <SelfContained>true</SelfContained>
         <Product>LocalRelay</Product>
@@ -24,7 +24,7 @@
 
         <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 
-        <Configurations>Release-Windows;Debug-Windows;Release-Photino;Debug-Photino;Release-Web;Debug-Web;Debug-WIndows</Configurations>
+        <Configurations>Release-Windows;Debug-Windows;Release-Photino;Debug-Photino;Release-Web;Debug-Web</Configurations>
 
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
