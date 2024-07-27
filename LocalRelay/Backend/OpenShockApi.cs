@@ -55,7 +55,7 @@ public sealed class OpenShockApi
         error =>
         {
             _logger.LogError("We are not authenticated with the OpenShock API!");
-            // TODO: handle unauthenticated error
+            throw new UnauthenticatedException();
         });
     }
 

@@ -11,10 +11,12 @@ public sealed class ConfigManager
     
     private readonly ILogger<ConfigManager> _logger;
     public LocalRelayConfig Config { get; }
+    private readonly Timer _saveTimer;
 
     public ConfigManager(ILogger<ConfigManager> logger)
     {
         _logger = logger;
+        _saveTimer = new Timer(_ => { OsTask.Run(SaveInternally); });
 
         // Load config
         LocalRelayConfig? config = null;
@@ -48,7 +50,7 @@ public sealed class ConfigManager
         }
         _logger.LogInformation("No config file found (does not exist or empty or invalid), generating new one at {Path}", Path);
         Config = new LocalRelayConfig();
-        SaveAsync().Wait();
+        SaveInternally().Wait();
         _logger.LogInformation("New configuration file generated!");
     }
 
@@ -60,7 +62,7 @@ public sealed class ConfigManager
     
     private readonly SemaphoreSlim _saveLock = new(1, 1);
 
-    public async Task SaveAsync()
+    private async Task SaveInternally()
     {
         await _saveLock.WaitAsync().ConfigureAwait(false);
         try
@@ -69,25 +71,27 @@ public sealed class ConfigManager
             var directory = System.IO.Path.GetDirectoryName(Path);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
-            
+
             await File.WriteAllTextAsync(Path, JsonSerializer.Serialize(Config, Options)).ConfigureAwait(false);
             _logger.LogInformation("Config saved");
         }
         catch (Exception e)
         {
             _logger.LogError(e, "Error occurred while saving new config file");
-        } 
+        }
         finally
         {
             _saveLock.Release();
         }
     }
     
+    
     public void Save()
     {
-        SaveAsync().Wait();
+        lock (_saveTimer)
+        {
+            _saveTimer.Change(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);            
+        }
     }
-
-    public void SaveFnf() => OsTask.Run(SaveAsync);
     
 }

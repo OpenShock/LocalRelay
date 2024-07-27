@@ -40,8 +40,8 @@
     </PropertyGroup>
 
     <ItemGroup Condition="'$(Configuration)' == 'Debug-Windows' Or '$(Configuration)' == 'Release-Windows'">
-        <PackageReference Include="Microsoft.Maui.Controls" Version="8.0.40"/>
-        <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="8.0.40"/>
+        <PackageReference Include="Microsoft.Maui.Controls" Version="8.0.70" />
+        <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="8.0.70" />
     </ItemGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Debug-Photino' Or '$(Configuration)' == 'Release-Photino'">
@@ -70,26 +70,25 @@
         </None>
     </ItemGroup>
 
-
     <ItemGroup>
-        <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.19" />
-        <PackageReference Include="OpenShock.SDK.CSharp.Hub" Version="0.0.19" />
-        <PackageReference Include="OpenShock.SDK.CSharp.Live" Version="0.0.20" />
+        <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.24" />
+        <PackageReference Include="OpenShock.SDK.CSharp.Hub" Version="0.0.24" />
+        <PackageReference Include="OpenShock.SDK.CSharp.Live" Version="0.0.24" />
         <PackageReference Include="OpenShock.Serialization.Flatbuffers" Version="1.0.0" />
-        <PackageReference Include="Serilog" Version="3.1.1"/>
+        <PackageReference Include="Serilog" Version="4.0.0" />
         <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0"/>
         <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0"/>
-        <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
         <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0"/>
         <PackageReference Include="System.IO.Ports" Version="8.0.0" />
         <PackageReference Include="CommandLineParser" Version="2.9.1"/>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="8.0.40"/>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="8.0.70" />
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0"/>
-        <PackageReference Include="MudBlazor" Version="6.19.1"/>
+        <PackageReference Include="MudBlazor" Version="7.3.0" />
         <PackageReference Include="Semver" Version="2.3.0"/>
-        <PackageReference Include="System.Reactive" Version="6.0.0"/>
+        <PackageReference Include="System.Reactive" Version="6.0.1" />
     </ItemGroup>
 
     <PropertyGroup>

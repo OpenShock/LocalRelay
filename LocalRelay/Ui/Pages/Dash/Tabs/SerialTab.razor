@@ -1,22 +1,29 @@
-﻿@using OpenShock.LocalRelay.Services
+﻿@using OpenShock.LocalRelay.Backend
+@using OpenShock.LocalRelay.Config
+@using OpenShock.LocalRelay.Services
 @inject SerialService SerialService
+@inject OpenShockApi ApiClient
 
 @page "/dash/serial"
 
 <MudPap Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: row">
 
+    <MudSelect T="Guid" Variant="Variant.Outlined" Label="Hub">
+        @foreach (var device in ApiClient.Devices)
+        {
+        <MudSelectItem Value="@device.Id">@device.Name</MudSelectItem>
+        }
+    </MudSelect>
+    
+    <br/>
+    
     <MudButton OnClick="RefreshSerialPorts" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Primary" Style="margin-right: 10px;">Refresh Serial Ports</MudButton>
-    <MudSelect Variant="Variant.Outlined" @bind-Value="_selectedSerialPort" Label="Select Serial Port" @bind-Value:after="SelectedSerialPortChanged">
+    <MudSelect Variant="Variant.Outlined" @bind-Value="_selectedSerialPort" Label="Serial Port" @bind-Value:after="SelectedSerialPortChanged">
         @foreach (var port in SerialPorts)
         {
             <MudSelectItem Value="@port">@port</MudSelectItem>
         }
     </MudSelect>
-    
-    @if (_selectedSerialPort != null)
-    {
-        
-    }
 
 </MudPap>
 
@@ -26,6 +33,7 @@
 
     protected override void OnInitialized()
     {
+        
         RefreshSerialPorts();
     }
 
