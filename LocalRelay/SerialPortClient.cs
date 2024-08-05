@@ -64,6 +64,8 @@ public sealed class SerialPortClient : IAsyncDisposable
             {
                 await Task.Delay(100);
             }
+            
+            _logger.LogTrace("Detected serial port closed, cancelling current CTS");
 
             await _currentCts.CancelAsync();
         });
@@ -97,6 +99,7 @@ public sealed class SerialPortClient : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
+            _logger.LogTrace("TxLoop cancelled");
         }
 
         _logger.LogDebug("TxLoop exited");
@@ -113,16 +116,20 @@ public sealed class SerialPortClient : IAsyncDisposable
                 {
                     var data = await _serialPort.BaseStream.ReadAsync(buffer, _linkedCts.Token);
 
-                    _logger.LogDebug("Received data: {0}", Encoding.ASCII.GetString(buffer[..data]));
+                    Console.Write(Encoding.ASCII.GetString(buffer[..data]));
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException e)
                 {
+                    _logger.LogError(e, "YES");
+                    _logger.LogTrace("RxLoop cancelled. Serial Port Open: {Open} | Cancelled: {Cancelled}", _serialPort.IsOpen, _linkedCts.IsCancellationRequested);
                 }
                 catch (Exception e)
                 {
                     _logger.LogError(e, "Error during RxLoop");
                 }
             }
+            
+            _logger.LogTrace("Serial Port Open: {Open} | Cancelled: {Cancelled}", _serialPort.IsOpen, _linkedCts.IsCancellationRequested);
 
             Console.WriteLine("RxLoop exited");
         }

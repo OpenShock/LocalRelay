@@ -11,7 +11,7 @@ public sealed class OpenShockApi
 {
     private readonly ILogger<OpenShockApi> _logger;
     private readonly ConfigManager _configManager;
-    private OpenShockApiClient? _client = null;
+    public OpenShockApiClient? Client { get; private set; }
 
     /// <summary>
     /// DI constructor
@@ -27,7 +27,7 @@ public sealed class OpenShockApi
 
     public void SetupApiClient()
     {
-        _client = new OpenShockApiClient(new ApiClientOptions
+        Client = new OpenShockApiClient(new ApiClientOptions
         {
             Server = _configManager.Config.OpenShock.Backend,
             Token = _configManager.Config.OpenShock.Token
@@ -40,12 +40,12 @@ public sealed class OpenShockApi
 
     public async Task RefreshShockers()
     {
-        if (_client == null)
+        if (Client == null)
         {
             _logger.LogError("Client is not initialized!");
             throw new Exception("Client is not initialized!");
         }
-        var response = await _client.GetOwnShockers();
+        var response = await Client.GetOwnShockers();
         
         response.Switch(success =>
             {
@@ -69,13 +69,13 @@ public sealed class OpenShockApi
         Task<OneOf<Success<LcgResponse>, NotFound, DeviceOffline, DeviceNotConnectedToGateway, UnauthenticatedError>>
         GetDeviceGateway(Guid deviceId, CancellationToken cancellationToken = default)
     {
-        if (_client == null)
+        if (Client == null)
         {
             _logger.LogError("Client is not initialized!");
             throw new Exception("Client is not initialized!");
         }
         
-        return _client.GetDeviceGateway(deviceId, cancellationToken);
+        return Client.GetDeviceGateway(deviceId, cancellationToken);
     }
         
 }

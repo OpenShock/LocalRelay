@@ -1,25 +1,28 @@
 ﻿@using OpenShock.LocalRelay.Backend
-@using OpenShock.LocalRelay.Config
 @using OpenShock.LocalRelay.Services
 @inject SerialService SerialService
 @inject OpenShockApi ApiClient
+@inject FlowManager FlowManager
+@inject ISnackbar Snackbar
+@inject ILogger<SerialTab> Logger
 
 @page "/dash/serial"
 
-<MudPap Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: row">
+<MudPap Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column">
 
-    <MudSelect T="Guid" Variant="Variant.Outlined" Label="Hub">
+    <MudSelect T="string" Variant="Variant.Outlined" Label="Hub" @bind-Value="_selectedDevice" @bind-Value:after="SelectedDeviceChanged">
         @foreach (var device in ApiClient.Devices)
         {
-        <MudSelectItem Value="@device.Id">@device.Name</MudSelectItem>
+            <MudSelectItem Value="@device.Id.ToString()">@device.Name</MudSelectItem>
         }
     </MudSelect>
     
     <br/>
+    <br/>
     
     <MudButton OnClick="RefreshSerialPorts" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Primary" Style="margin-right: 10px;">Refresh Serial Ports</MudButton>
     <MudSelect Variant="Variant.Outlined" @bind-Value="_selectedSerialPort" Label="Serial Port" @bind-Value:after="SelectedSerialPortChanged">
-        @foreach (var port in SerialPorts)
+        @foreach (var port in _serialPorts)
         {
             <MudSelectItem Value="@port">@port</MudSelectItem>
         }
@@ -28,8 +31,10 @@
 </MudPap>
 
 @code {
+    private string _selectedDevice = string.Empty;
+    
     private string? _selectedSerialPort;
-    private string[] SerialPorts = [];
+    private string[] _serialPorts = [];
 
     protected override void OnInitialized()
     {
@@ -37,13 +42,57 @@
         RefreshSerialPorts();
     }
 
+    private async Task SelectedDeviceChanged()
+    {
+        if(string.IsNullOrEmpty(_selectedDevice)) return;
+             
+        
+        if (ApiClient.Client == null)
+        {
+            Snackbar.Add("You must be logged in to connect to a device", Severity.Error);
+            return;
+        }
+
+        if (!Guid.TryParse(_selectedDevice, out var guid))
+        {
+            Logger.LogError("Failed to parse device guid");
+            return;
+        }
+        
+        var deviceDetails = await ApiClient.Client.GetDevice(guid);
+        if (deviceDetails.IsT0)
+        {
+            var token = deviceDetails.AsT0.Value.Token;
+            if(token == null)
+            {
+                Snackbar.Add("Device token is null, make sure you have added Device Auth permission to the API Token", Severity.Error);
+                return;
+            }
+            await FlowManager.StartDeviceConnection(token);
+            return;
+        }
+        
+        deviceDetails.Switch(success => { },
+        found =>
+        {
+            Snackbar.Add("Device was not found, please refresh the list", Severity.Error);
+        },
+        error =>
+        {
+            Snackbar.Add("You must be logged in to connect to a device", Severity.Error);
+            return;
+        });
+    }
+    
     private void RefreshSerialPorts()
     {
-        SerialPorts = SerialService.GetSerialPorts();
+        _serialPorts = SerialService.GetSerialPorts();
     }
 
-    private void SelectedSerialPortChanged()
+    private async Task SelectedSerialPortChanged()
     {
+        if (_selectedSerialPort != null)
+            await FlowManager.ConnectSerialPort(_selectedSerialPort);
     }
 
 }

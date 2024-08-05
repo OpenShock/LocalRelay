@@ -185,6 +185,7 @@ public sealed class DeviceConnection : IAsyncDisposable
 
             OsTask.Run(ReceiveLoop, _linked.Token);
             OsTask.Run(MessageLoop, _linked.Token);
+            KeepAliveTimerElapsed(null, null!);
             _keepAliveTimer.Start();
 
             return new Success();

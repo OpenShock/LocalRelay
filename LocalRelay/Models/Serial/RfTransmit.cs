@@ -1,5 +1,5 @@
 ﻿using System.Text.Json.Serialization;
-using OpenShock.SDK.CSharp.Models;
+using OpenShock.Serialization.Types;
 
 namespace OpenShock.LocalRelay.Models.Serial;
 
@@ -9,7 +9,7 @@ public sealed class RfTransmit
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public required ShockerModelType Model { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public required ControlType Type { get; set; }
+    public required ShockerCommandType Type { get; set; }
     public required byte Intensity { get; set; }
     public required ushort DurationMs { get; set; }
 }

@@ -57,6 +57,8 @@ public static class ShockOscBootstrap
         
 
         services.AddSingleton<AuthService>();
+
+        services.AddSingleton<FlowManager>();
     }
 
     public static void AddCommonBlazorServices(this IServiceCollection services)
@@ -94,6 +96,8 @@ public static class ShockOscBootstrap
         services.GetRequiredService<PipeServerService>().StartServer();
 
         var updater = services.GetRequiredService<Updater>();
+        var flowManager = services.GetRequiredService<FlowManager>();
+        
         OsTask.Run(updater.CheckUpdate);
     }
 }
