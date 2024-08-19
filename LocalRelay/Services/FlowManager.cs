@@ -3,6 +3,7 @@ using System.Threading.Channels;
 using OpenShock.LocalRelay.Config;
 using OpenShock.LocalRelay.Models.Serial;
 using OpenShock.SDK.CSharp.Models;
+using OpenShock.SDK.CSharp.Utils;
 using OpenShock.Serialization.Gateway;
 
 namespace OpenShock.LocalRelay.Services;
@@ -15,7 +16,8 @@ public sealed class FlowManager
     private readonly ILogger<SerialPortClient> _serialPortClientLogger;
 
     private DeviceConnection? _deviceConnection = null;
-    private SerialPortClient? _serialPortClient = null;
+    public SerialPortClient? SerialPortClient { get; private set; } = null;
+    public event Func<Task>? OnConsoleUpdate; 
 
 
     public FlowManager(
@@ -41,9 +43,9 @@ public sealed class FlowManager
 
     private async Task OnControlMessage(ShockerCommandList commandList)
     {
-        if (_serialPortClient == null) return;
+        if (SerialPortClient == null) return;
 
-        var transmitTasks = commandList.Commands.Select(command => _serialPortClient.Control(new RfTransmit
+        var transmitTasks = commandList.Commands.Select(command => SerialPortClient.Control(new RfTransmit
         {
             Id = command.Id,
             Intensity = command.Intensity,
@@ -56,7 +58,13 @@ public sealed class FlowManager
 
     public async Task ConnectSerialPort(string portName)
     {
-        _serialPortClient = new SerialPortClient(_serialPortClientLogger, portName);
-        await _serialPortClient.Open();
+        if (SerialPortClient != null)
+        {
+            await SerialPortClient.DisposeAsync();
+        }
+        
+        SerialPortClient = new SerialPortClient(_serialPortClientLogger, portName);
+        SerialPortClient.OnConsoleBufferUpdate += OnConsoleUpdate.Raise;
+        await SerialPortClient.Open();
     }
 }

@@ -33,9 +33,8 @@ public sealed class DeviceConnection : IAsyncDisposable
     {
         AutoReset = true
     };
-    
-    public delegate Task ControlMessageHandler (ShockerCommandList commandList); 
-    public event ControlMessageHandler? OnControlMessage;
+
+    public event Func<ShockerCommandList, Task>? OnControlMessage;
 
     private Channel<HubToGatewayMessage> _channel = Channel.CreateUnbounded<HubToGatewayMessage>();
 
@@ -331,7 +330,7 @@ public sealed class DeviceConnection : IAsyncDisposable
         switch (wsRequest.Payload.Value.Kind)
         {
             case GatewayToHubMessagePayload.ItemKind.ShockerCommandList:
-                OnControlMessage?.Invoke(wsRequest.Payload.Value.Item1);                
+                await OnControlMessage.Raise(wsRequest.Payload.Value.Item1);                
                 break;
         }
     }

@@ -71,6 +71,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="CircularBuffer" Version="1.4.0" />
         <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.25" />
         <PackageReference Include="OpenShock.SDK.CSharp.Hub" Version="0.0.24" />
         <PackageReference Include="OpenShock.SDK.CSharp.Live" Version="0.0.24" />

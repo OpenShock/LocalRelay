@@ -1,14 +1,17 @@
-﻿@using OpenShock.LocalRelay.Backend
+﻿@using System.Reactive.Linq
+@using System.Reactive.Subjects
+@using OpenShock.LocalRelay.Backend
 @using OpenShock.LocalRelay.Services
 @inject SerialService SerialService
 @inject OpenShockApi ApiClient
 @inject FlowManager FlowManager
 @inject ISnackbar Snackbar
 @inject ILogger<SerialTab> Logger
+@implements IDisposable
 
 @page "/dash/serial"
 
-<MudPap Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column">
+<MudPaper Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column">
 
     <MudSelect T="string" Variant="Variant.Outlined" Label="Hub" @bind-Value="_selectedDevice" @bind-Value:after="SelectedDeviceChanged">
         @foreach (var device in ApiClient.Devices)
@@ -16,10 +19,10 @@
             <MudSelectItem Value="@device.Id.ToString()">@device.Name</MudSelectItem>
         }
     </MudSelect>
-    
+
     <br/>
     <br/>
-    
+
     <MudButton OnClick="RefreshSerialPorts" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Primary" Style="margin-right: 10px;">Refresh Serial Ports</MudButton>
     <MudSelect Variant="Variant.Outlined" @bind-Value="_selectedSerialPort" Label="Serial Port" @bind-Value:after="SelectedSerialPortChanged">
         @foreach (var port in _serialPorts)
@@ -28,25 +31,76 @@
         }
     </MudSelect>
 
-</MudPap>
+    <br/>
+
+    <MudDivider/>
+
+    <br/>
+
+    <MudPaper Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column; height: 500px" @onkeydown="InputKey">
+
+        <h2>Serial Terminal</h2>
+
+        <div style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; height: 100%">
+
+            <pre>
+                @if (FlowManager.SerialPortClient?.RxConsoleBuffer == null)
+                {
+                    <span>Serial Port is not connected</span>
+                }
+                else
+                {
+                    @foreach (var line in FlowManager.SerialPortClient.RxConsoleBuffer)
+                    {
+                        @line
+                    }
+                }
+            </pre>
+        </div>
+        
+        <MudTextField Style="height: 0; width: 0;" @ref="_bogus" T="string"></MudTextField>
+        
+        <MudTextField
+            @ref="_terminalInputField" @bind-Value="@_terminalInput" Immediate="true"/>
+    </MudPaper>
+
+</MudPaper>
 
 @code {
     private string _selectedDevice = string.Empty;
-    
     private string? _selectedSerialPort;
     private string[] _serialPorts = [];
+    private string _terminalInput = string.Empty;
+    
+    private MudTextField<string> _terminalInputField;
+    private MudTextField<string> _bogus;
+    
+    private Subject<byte> _terminalUpdate = new();
 
     protected override void OnInitialized()
     {
-        
         RefreshSerialPorts();
+
+        _terminalUpdate.Throttle(TimeSpan.FromMilliseconds(20)).Subscribe(u =>
+        {
+            InvokeAsync(StateHasChanged);
+        });
+
+        FlowManager.OnConsoleUpdate += FlowManagerOnOnConsoleUpdate;
+    }
+
+    private Task FlowManagerOnOnConsoleUpdate()
+    {
+        Console.WriteLine("Update received");
+        _terminalUpdate.OnNext(0);
+        return Task.CompletedTask;
     }
 
     private async Task SelectedDeviceChanged()
     {
-        if(string.IsNullOrEmpty(_selectedDevice)) return;
-             
-        
+        if (string.IsNullOrEmpty(_selectedDevice)) return;
+
+
         if (ApiClient.Client == null)
         {
             Snackbar.Add("You must be logged in to connect to a device", Severity.Error);
@@ -58,32 +112,30 @@
             Logger.LogError("Failed to parse device guid");
             return;
         }
-        
+
         var deviceDetails = await ApiClient.Client.GetDevice(guid);
         if (deviceDetails.IsT0)
         {
             var token = deviceDetails.AsT0.Value.Token;
-            if(token == null)
+            if (token == null)
             {
                 Snackbar.Add("Device token is null, make sure you have added Device Auth permission to the API Token", Severity.Error);
                 return;
             }
+
             await FlowManager.StartDeviceConnection(token);
             return;
         }
-        
+
         deviceDetails.Switch(success => { },
-        found =>
-        {
-            Snackbar.Add("Device was not found, please refresh the list", Severity.Error);
-        },
-        error =>
-        {
-            Snackbar.Add("You must be logged in to connect to a device", Severity.Error);
-            return;
-        });
+            found => { Snackbar.Add("Device was not found, please refresh the list", Severity.Error); },
+            error =>
+            {
+                Snackbar.Add("You must be logged in to connect to a device", Severity.Error);
+                return;
+            });
     }
-    
+
     private void RefreshSerialPorts()
     {
         _serialPorts = SerialService.GetSerialPorts();
@@ -93,6 +145,24 @@
     {
         if (_selectedSerialPort != null)
             await FlowManager.ConnectSerialPort(_selectedSerialPort);
+    }
+
+    private async Task InputKey(KeyboardEventArgs e)
+    {
+        if (e.Code is not ("Enter" or "NumpadEnter")) return;
+        
+        FlowManager.SerialPortClient?.QueueCommand(_terminalInput + "\r\n");
+        _terminalInput = string.Empty;
+        await _terminalInputField.Clear();
+        await _bogus.InputReference.ElementReference.FocusAsync();
+        await _terminalInputField.InputReference.ElementReference.FocusAsync();
+        
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        FlowManager.OnConsoleUpdate -= FlowManagerOnOnConsoleUpdate;
     }
 
 }
