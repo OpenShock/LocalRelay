@@ -330,7 +330,8 @@ public sealed class DeviceConnection : IAsyncDisposable
         switch (wsRequest.Payload.Value.Kind)
         {
             case GatewayToHubMessagePayload.ItemKind.ShockerCommandList:
-                await OnControlMessage.Raise(wsRequest.Payload.Value.Item1);                
+                await OnControlMessage.Raise(wsRequest.Payload.Value.Item1);    
+                Console.WriteLine(string.Join(';', wsRequest.Payload.Value.Item1.Commands.Select(x => x.Type)));
                 break;
         }
     }

@@ -1,0 +1,82 @@
+﻿@inject OpenShockApi ApiClient
+@inject ISnackbar Snackbar
+@inject FlowManager FlowManager
+@inject ILogger<SerialTab> Logger
+@using OpenShock.LocalRelay.Backend
+@using OpenShock.LocalRelay.Services
+@using OpenShock.SDK.CSharp.Live.LiveControlModels
+@implements IDisposable
+
+@page "/dash/hub"
+
+<MudPaper Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column">
+
+    <span>
+    
+    <MudSelect T="string" Variant="Variant.Outlined" Label="Hub" @bind-Value="_selectedDevice" @bind-Value:after="SelectedDeviceChanged">
+        @foreach (var device in ApiClient.Devices)
+        {
+            <MudSelectItem Value="@device.Id.ToString()">@device.Name</MudSelectItem>
+        }
+    </MudSelect>
+
+    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Primary" Style="margin-right: 10px;">Disconnect</MudButton>
+    </span>
+    <div>
+        <MudIcon Color="GetConnectionStateColor(FlowManager.State.Value)" Icon="@Icons.Material.Filled.CheckCircle"></MudIcon>
+        @FlowManager.State.Value
+    </div>
+
+</MudPaper>
+
+@code {
+
+    private string _selectedDevice = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        _selectedDevice = FlowManager.Id != Guid.Empty ? FlowManager.Id.ToString() : string.Empty;
+
+        FlowManager.State.OnValueChanged += UpdateState;
+    }
+
+    private Task UpdateState(WebsocketConnectionState arg)
+    {
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private static Color GetConnectionStateColor(WebsocketConnectionState state) =>
+        state switch
+        {
+            WebsocketConnectionState.Connected => Color.Success,
+            WebsocketConnectionState.Reconnecting => Color.Warning,
+            WebsocketConnectionState.Connecting => Color.Warning,
+            WebsocketConnectionState.Disconnected => Color.Error,
+            _ => Color.Error
+        };
+
+    private async Task SelectedDeviceChanged()
+    {
+        if (string.IsNullOrEmpty(_selectedDevice)) return;
+
+
+        if (!Guid.TryParse(_selectedDevice, out var guid))
+        {
+            Logger.LogError("Failed to parse device guid");
+            return;
+        }
+
+        var result = await FlowManager.SelectedDeviceChanged(guid);
+
+        result.Switch(success => { },
+            @mustBeLoggedIn => { Snackbar.Add("You must be logged in to connect to a device", Severity.Error); },
+            @authTokenNull => { Snackbar.Add("Device token is null, make sure you have added Device Auth permission to the API Token", Severity.Error); },
+            notFound => { Snackbar.Add("Device was not found, please refresh the list", Severity.Error); });
+    }
+
+    public void Dispose()
+    {
+        FlowManager.State.OnValueChanged -= UpdateState;
+    }
+
+}

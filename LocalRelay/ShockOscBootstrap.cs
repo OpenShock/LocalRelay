@@ -99,5 +99,6 @@ public static class ShockOscBootstrap
         var flowManager = services.GetRequiredService<FlowManager>();
         
         OsTask.Run(updater.CheckUpdate);
+        OsTask.Run(flowManager.LoadConfigAndStart);
     }
 }

@@ -2,6 +2,7 @@
 using Microsoft.Maui.LifecycleEvents;
 using OpenShock.LocalRelay.Config;
 using OpenShock.LocalRelay.Platforms.Windows;
+using OpenShock.LocalRelay.Services;
 using OpenShock.LocalRelay.Services.Pipes;
 
 namespace OpenShock.LocalRelay;

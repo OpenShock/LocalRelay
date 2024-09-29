@@ -1,5 +1,7 @@
 ﻿using System.Buffers;
 using System.IO.Ports;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
@@ -19,6 +21,7 @@ public sealed class SerialPortClient : IAsyncDisposable
     private readonly CancellationTokenSource _disposeCts = new();
     private CancellationTokenSource? _currentCts;
     private CancellationTokenSource _linkedCts;
+    private readonly Subject<byte> _terminalUpdate = new();
 
     public readonly CircularBuffer<string> RxConsoleBuffer = new(1000);
     public event Func<Task>? OnConsoleBufferUpdate;
@@ -35,6 +38,11 @@ public sealed class SerialPortClient : IAsyncDisposable
         _logger = logger;
         _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
 
+        _terminalUpdate.Throttle(TimeSpan.FromMilliseconds(20)).Subscribe(u =>
+        {
+            OsTask.Run(() => OnConsoleBufferUpdate.Raise());
+        });
+        
         _serialPort = new SerialPort
         {
             PortName = portName,
@@ -76,6 +84,7 @@ public sealed class SerialPortClient : IAsyncDisposable
 
             OnClose.Raise();
             
+            if (_currentCts == null || _disposed) return;
             await _currentCts.CancelAsync();
         });
     }
@@ -127,8 +136,7 @@ public sealed class SerialPortClient : IAsyncDisposable
                 {
                     var data = await _serialPort.BaseStream.ReadAsync(buffer, _linkedCts.Token);
                     HandleRxChars(buffer.AsSpan()[..data]);
-                    Console.WriteLine("Sending update lol: " + data);
-                    OsTask.Run(() => OnConsoleBufferUpdate.Raise());
+                    _terminalUpdate.OnNext(0);
                 }
                 catch (OperationCanceledException)
                 {
