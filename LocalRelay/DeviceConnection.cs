@@ -171,7 +171,11 @@ public sealed class DeviceConnection : IAsyncDisposable
         
         _clientWebSocket = new ClientWebSocket();
 
+        var liveClientAssembly = GetType().Assembly;
+        var liveClientVersion = liveClientAssembly.GetName().Version!;
+        
         _clientWebSocket.Options.SetRequestHeader("Device-Token", _authToken);
+        _clientWebSocket.Options.SetRequestHeader("Firmware-Version", $"{liveClientVersion.Major}.{liveClientVersion.Minor}.{liveClientVersion.Build}");
         _clientWebSocket.Options.SetRequestHeader("User-Agent", GetUserAgent());
         _logger.LogInformation("Connecting to websocket....");
         try
@@ -320,6 +324,8 @@ public sealed class DeviceConnection : IAsyncDisposable
 
         OsTask.Run(ConnectAsync, _dispose.Token);
     }
+    
+    DateTime lastMessage = DateTime.UtcNow;
 
     private async Task HandleMessage(GatewayToHubMessage? wsRequest)
     {
@@ -331,7 +337,9 @@ public sealed class DeviceConnection : IAsyncDisposable
         {
             case GatewayToHubMessagePayload.ItemKind.ShockerCommandList:
                 await OnControlMessage.Raise(wsRequest.Payload.Value.Item1);    
-                Console.WriteLine(string.Join(';', wsRequest.Payload.Value.Item1.Commands.Select(x => x.Type)));
+                Console.WriteLine(DateTime.UtcNow.ToString("O") + " - " + (DateTime.UtcNow - lastMessage).TotalMilliseconds);
+                
+                lastMessage = DateTime.UtcNow;
                 break;
         }
     }
