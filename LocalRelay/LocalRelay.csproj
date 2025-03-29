@@ -1,7 +1,6 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
-        <OutputType>Exe</OutputType>
         <SingleProject>true</SingleProject>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
@@ -9,87 +8,46 @@
         <RootNamespace>OpenShock.LocalRelay</RootNamespace>
         <Company>OpenShock</Company>
         <AssemblyVersion>1.0.0.0</AssemblyVersion>
-        <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <ApplicationTitle>LocalRelay</ApplicationTitle>
         <Version>1.0.0</Version>
-        <SelfContained>true</SelfContained>
         <Product>LocalRelay</Product>
+        <TargetFramework>net9.0</TargetFramework>
 
-        <ApplicationIcon>Resources\localrelay-icon.ico</ApplicationIcon>
-        <PackageIcon>Resources\localrelay-icon.png</PackageIcon>
-
-        <ResourceLanguages>en</ResourceLanguages>
-        <SatelliteResourceLanguages>en-US;en</SatelliteResourceLanguages>
-        <IsPackable>false</IsPackable>
-
-        <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-
-        <Configurations>Release-Windows;Debug-Windows;Release-Photino;Debug-Photino;Release-Web;Debug-Web</Configurations>
+        <Configurations>Release;Debug</Configurations>
 
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
 
-    <PropertyGroup Condition="'$(Configuration)' == 'Debug-Windows' Or '$(Configuration)' == 'Release-Windows'">
-        <TargetFramework>net9.0-windows10.0.19041</TargetFramework>
-        <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
-        <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-        <WindowsPackageType>None</WindowsPackageType>
-        <UseMaui>true</UseMaui>
-        <DefineConstants>MAUI</DefineConstants>
-        <StartupObject>OpenShock.LocalRelay.Platforms.Windows.WindowsEntryPoint</StartupObject>
-    </PropertyGroup>
-
-    <ItemGroup Condition="'$(Configuration)' == 'Debug-Windows' Or '$(Configuration)' == 'Release-Windows'">
-        <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.10" />
-        <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="9.0.10" />
-    </ItemGroup>
-
-    <PropertyGroup Condition="'$(Configuration)' == 'Debug-Photino' Or '$(Configuration)' == 'Release-Photino'">
-        <TargetFramework>net9.0</TargetFramework>
-        <StartupObject>OpenShock.LocalRelay.Platforms.Photino.PhotinoEntryPoint</StartupObject>
-        <DefineConstants>PHOTINO</DefineConstants>
-        <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
-    </PropertyGroup>
-
-    <ItemGroup Condition="'$(Configuration)' == 'Debug-Photino' Or '$(Configuration)' == 'Release-Photino'">
-        <PackageReference Include="Photino.Blazor" Version="2.7.0"/>
-    </ItemGroup>
-
-    <PropertyGroup Condition="'$(Configuration)' == 'Debug-Web' Or '$(Configuration)' == 'Release-Web' ">
-        <TargetFramework>net9.0</TargetFramework>
-        <StartupObject>OpenShock.LocalRelay.Platforms.Web.WebEntryPoint</StartupObject>
-        <DefineConstants>WEB</DefineConstants>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <Content Update="wwwroot\**">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-        <None Update="Resources\**">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
-    </ItemGroup>
-
     <ItemGroup>
         <PackageReference Include="CircularBuffer" Version="1.4.0" />
-        <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.29" />
-        <PackageReference Include="OpenShock.SDK.CSharp.Hub" Version="0.0.29" />
-        <PackageReference Include="OpenShock.SDK.CSharp.Live" Version="0.0.29" />
+        <PackageReference Include="OpenShock.Desktop.ModuleBase" Version="1.0.0-preview.1" />
+        <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.34" />
+        <PackageReference Include="OpenShock.SDK.CSharp.Live" Version="0.0.33" />
         <PackageReference Include="OpenShock.Serialization.Flatbuffers" Version="1.0.0" />
-        <PackageReference Include="Serilog" Version="4.1.0" />
-        <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0"/>
-        <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0"/>
-        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
-        <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
-        <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+        <PackageReference Include="Serilog" Version="4.2.0" />
+        <PackageReference Include="System.IO.Ports" Version="9.0.3" />
         <PackageReference Include="CommandLineParser" Version="2.9.1"/>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="9.0.10" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
-        <PackageReference Include="MudBlazor" Version="7.15.0" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3" />
+        <PackageReference Include="MudBlazor" Version="8.3.0" />
         <PackageReference Include="Semver" Version="3.0.0" />
-        <PackageReference Include="System.Reactive" Version="6.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="wwwroot\images\Icon.svg" />
+      <_ContentIncludedByDefault Remove="wwwroot\images\Icon512.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\images\Icon64.png" />
+      <_ContentIncludedByDefault Remove="wwwroot\images\IconLoadingSpin.svg" />
+      <_ContentIncludedByDefault Remove="wwwroot\images\IconSlowSpin.svg" />
+      <_ContentIncludedByDefault Remove="Properties\launchSettings.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <UpToDateCheckInput Remove="Ui\Pages\Authentication\Authenticate.razor" />
+      <UpToDateCheckInput Remove="Ui\Pages\Authentication\LoginPart.razor" />
+      <UpToDateCheckInput Remove="Ui\Pages\Authentication\NotAuthedLayout.razor" />
+      <UpToDateCheckInput Remove="Ui\ErrorHandling\CodeBlock.razor" />
+      <UpToDateCheckInput Remove="Ui\ErrorHandling\ContainerWithExceptionHandling.razor" />
+      <UpToDateCheckInput Remove="Ui\ErrorHandling\ExceptionView.razor" />
     </ItemGroup>
 
     <PropertyGroup>
