@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "LocalRelay": {
-      "commandName": "Project",
-      "nativeDebugging": false
-    }
-  }
-}

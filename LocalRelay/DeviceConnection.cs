@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Channels;
 using System.Timers;
+using Microsoft.Extensions.Logging;
 using OneOf;
 using OneOf.Types;
 using OpenShock.LocalRelay.Models.Backend;
