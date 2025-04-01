@@ -1,5 +1,9 @@
-﻿using OneOf;
+﻿using Microsoft.Extensions.Logging;
+using OneOf;
 using OneOf.Types;
+using OpenShock.Desktop.ModuleBase.Api;
+using OpenShock.Desktop.ModuleBase.Config;
+using OpenShock.LocalRelay.Config;
 using OpenShock.LocalRelay.Models.Serial;
 using OpenShock.SDK.CSharp.Live.LiveControlModels;
 using OpenShock.SDK.CSharp.Updatables;
@@ -10,16 +14,18 @@ namespace OpenShock.LocalRelay.Services;
 
 public sealed class FlowManager
 {
-    private readonly ConfigManager _configManager;
+    private readonly IModuleConfig<LocalRelayConfig> _config;
     private readonly ILogger<FlowManager> _logger;
     private readonly ILogger<DeviceConnection> _deviceConnectionLogger;
     private readonly ILogger<SerialPortClient> _serialPortClientLogger;
-    private readonly OpenShockApi _apiClient;
+    private readonly IOpenShockService _openShockService;
 
     public Guid Id { get; private set; } = Guid.Empty;
 
     public DeviceConnection? DeviceConnection { get; private set; } = null;
     public SerialPortClient? SerialPortClient { get; private set; } = null;
+    
+    
     public event Func<Task>? OnConsoleUpdate;
     
     private readonly AsyncUpdatableVariable<WebsocketConnectionState> _state =
@@ -27,41 +33,55 @@ public sealed class FlowManager
     public IAsyncUpdatable<WebsocketConnectionState> State => _state;
 
     public FlowManager(
-        ConfigManager configManager,
+        IModuleConfig<LocalRelayConfig> config,
         ILogger<FlowManager> logger,
         ILogger<DeviceConnection> deviceConnectionLogger,
         ILogger<SerialPortClient> serialPortClientLogger,
-        OpenShockApi apiClient)
+        IOpenShockService openShockService)
     {
-        _configManager = configManager;
+        _config = config;
         _logger = logger;
         _deviceConnectionLogger = deviceConnectionLogger;
         _serialPortClientLogger = serialPortClientLogger;
-        _apiClient = apiClient;
+        _openShockService = openShockService;
     }
 
     public async Task LoadConfigAndStart()
     {
-        if (_configManager.Config.Hub.Hub != null)
-            await SelectedDeviceChanged(_configManager.Config.Hub.Hub.Value);
+        if (_config.Config.Hub.Hub != null)
+            await SelectedDeviceChanged(_config.Config.Hub.Hub.Value);
     }
     
-    public async Task<OneOf<Success, MustBeLoggedIn, AuthTokenNull, NotFound>> SelectedDeviceChanged(Guid id)
+    public async Task SelectedDeviceChanged(Guid id)
     {
-        if (_apiClient.Client == null) return new MustBeLoggedIn();
+        _logger.LogInformation("Selected device changed to {Id}", id);
+        var deviceDetails = await _openShockService.Api.GetHub(id);
 
-        var deviceDetails = await _apiClient.Client.GetDevice(id);
+        
         if (deviceDetails.IsT0)
         {
             var token = deviceDetails.AsT0.Value.Token;
-            if (token == null) return new AuthTokenNull();
+            if (string.IsNullOrEmpty(token))
+            {
+                _logger.LogError("Token is null or empty, make sure your api token has device.auth permission");
+                return;
+            }
+            
+            _logger.LogDebug("Starting device connection");
 
             await StartDeviceConnection(id, token);
-            return new Success();
+            return;
         }
 
-        if (deviceDetails.IsT1) return new NotFound();
-        if (deviceDetails.IsT2) return new MustBeLoggedIn();
+       
+        deviceDetails.Switch(success => {}, found =>
+        {
+            _logger.LogError("Hub not found");
+        },
+        error =>
+        {
+            _logger.LogError("Unauthorized, make sure your logged in");
+        });
         
         throw new Exception("Unhandled OneOf type");
     }
@@ -76,19 +96,19 @@ public sealed class FlowManager
         
         Id = id;
         _state.Value = WebsocketConnectionState.Disconnected;
-        _configManager.Config.Hub.Hub = id;
-        _configManager.Save();
+        _config.Config.Hub.Hub = id;
+        await _config.Save();
         
         DeviceConnection =
-            new DeviceConnection(_configManager.Config.OpenShock.Backend, authToken, _deviceConnectionLogger);
+            new DeviceConnection(_openShockService.Auth.BackendBaseUri, authToken, _deviceConnectionLogger);
         DeviceConnection.OnControlMessage += OnControlMessage;
-        DeviceConnection.State.OnValueChanged += state =>
+        await DeviceConnection.State.Updated.SubscribeAsync(state =>
         {
             _state.Value = state;
             return Task.CompletedTask;
-        };
+        }).ConfigureAwait(false);
 
-        await DeviceConnection.InitializeAsync();
+        await DeviceConnection.InitializeAsync().ConfigureAwait(false);
     }
 
     private async Task OnControlMessage(ShockerCommandList commandList)
@@ -119,7 +139,3 @@ public sealed class FlowManager
         await SerialPortClient.Open();
     }
 }
-
-public readonly struct MustBeLoggedIn;
-public readonly struct DeviceNotFound;
-public readonly struct AuthTokenNull;

@@ -119,6 +119,7 @@ public sealed class DeviceConnection : IAsyncDisposable
         
         _keepAliveTimer.Stop();
         
+        _logger.LogDebug("Connecting to hub endpoint");
 
         _state.Value = WebsocketConnectionState.Connecting;
         if (_currentConnectionClose != null) await _currentConnectionClose.CancelAsync();
