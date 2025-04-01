@@ -20,16 +20,15 @@
 
     <ItemGroup>
         <PackageReference Include="CircularBuffer" Version="1.4.0" />
-        <PackageReference Include="OpenShock.Desktop.ModuleBase" Version="1.0.0-preview.1" />
+<!--        <PackageReference Include="OpenShock.Desktop.ModuleBase" Version="1.0.0-preview.1" />-->
         <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.34" />
         <PackageReference Include="OpenShock.SDK.CSharp.Live" Version="0.0.33" />
         <PackageReference Include="OpenShock.Serialization.Flatbuffers" Version="1.0.0" />
         <PackageReference Include="Serilog" Version="4.2.0" />
         <PackageReference Include="System.IO.Ports" Version="9.0.3" />
-        <PackageReference Include="CommandLineParser" Version="2.9.1"/>
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3" />
-        <PackageReference Include="MudBlazor" Version="8.3.0" />
+        <PackageReference Include="MudBlazor" Version="8.5.1" />
         <PackageReference Include="Semver" Version="3.0.0" />
+        <PackageReference Include="System.Reactive" Version="6.0.1" />
     </ItemGroup>
 
     <ItemGroup>
@@ -50,9 +49,20 @@
       <UpToDateCheckInput Remove="Ui\ErrorHandling\ExceptionView.razor" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Reference Include="OpenShock.Desktop.ModuleBase">
+        <HintPath>..\..\Desktop\ModuleBase\bin\Debug\net9.0\OpenShock.Desktop.ModuleBase.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+    
     <PropertyGroup>
         <ServerGarbageCollection>false</ServerGarbageCollection>
     </PropertyGroup>
 
+    <Target Name="CopyModule" AfterTargets="Build">
+        <Copy SourceFiles="$(TargetDir)\OpenShock.LocalRelay.dll"
+              DestinationFolder="$(APPDATA)\OpenShock\Desktop\modules\openshock.localrelay\"
+              OverwriteReadOnlyFiles="true" />
+    </Target>
 
 </Project>

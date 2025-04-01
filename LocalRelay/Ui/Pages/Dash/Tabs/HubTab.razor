@@ -1,11 +1,10 @@
-﻿@inject OpenShockApi ApiClient
-@inject ISnackbar Snackbar
-@inject FlowManager FlowManager
-@inject ILogger<SerialTab> Logger
-@using OpenShock.LocalRelay.Backend
+﻿@inject ILogger<SerialTab> Logger
+@using Microsoft.Extensions.Logging
+@using OpenShock.Desktop.ModuleBase
+@using OpenShock.Desktop.ModuleBase.Api
 @using OpenShock.LocalRelay.Services
 @using OpenShock.SDK.CSharp.Live.LiveControlModels
-@implements IDisposable
+@implements IAsyncDisposable
 
 @page "/dash/hub"
 
@@ -14,7 +13,7 @@
     <span>
     
     <MudSelect T="string" Variant="Variant.Outlined" Label="Hub" @bind-Value="_selectedDevice" @bind-Value:after="SelectedDeviceChanged">
-        @foreach (var device in ApiClient.Devices)
+        @foreach (var device in OpenShockService.Data.Hubs.Value)
         {
             <MudSelectItem Value="@device.Id.ToString()">@device.Name</MudSelectItem>
         }
@@ -31,18 +30,17 @@
 
 @code {
 
+    [ModuleInject] private IOpenShockService OpenShockService { get; set; } = null!;
+    [ModuleInject] private FlowManager FlowManager { get; set; } = null!;
+    
     private string _selectedDevice = string.Empty;
+    private IAsyncDisposable _flowUpdatedSubscription = null!;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         _selectedDevice = FlowManager.Id != Guid.Empty ? FlowManager.Id.ToString() : string.Empty;
 
-        FlowManager.State.OnValueChanged += UpdateState;
-    }
-
-    private Task UpdateState(WebsocketConnectionState arg)
-    {
-        return InvokeAsync(StateHasChanged);
+        _flowUpdatedSubscription = await FlowManager.State.Updated.SubscribeAsync(state => InvokeAsync(StateHasChanged));
     }
 
     private static Color GetConnectionStateColor(WebsocketConnectionState state) =>
@@ -66,17 +64,12 @@
             return;
         }
 
-        var result = await FlowManager.SelectedDeviceChanged(guid);
-
-        result.Switch(success => { },
-            @mustBeLoggedIn => { Snackbar.Add("You must be logged in to connect to a device", Severity.Error); },
-            @authTokenNull => { Snackbar.Add("Device token is null, make sure you have added Device Auth permission to the API Token", Severity.Error); },
-            notFound => { Snackbar.Add("Device was not found, please refresh the list", Severity.Error); });
+        await FlowManager.SelectedDeviceChanged(guid);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        FlowManager.State.OnValueChanged -= UpdateState;
+        await _flowUpdatedSubscription.DisposeAsync();
     }
 
 }

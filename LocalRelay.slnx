@@ -1,11 +1,4 @@
 ﻿<Solution>
-  <Configurations>
-    <BuildType Name="Debug-Photino" />
-    <BuildType Name="Debug-Web" />
-    <BuildType Name="Debug-Windows" />
-    <BuildType Name="Release-Photino" />
-    <BuildType Name="Release-Web" />
-    <BuildType Name="Release-Windows" />
-  </Configurations>
+  <Configurations />
   <Project Path="LocalRelay\LocalRelay.csproj" Type="Classic C#" />
 </Solution>
