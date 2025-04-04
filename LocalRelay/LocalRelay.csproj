@@ -53,7 +53,7 @@
         <ServerGarbageCollection>false</ServerGarbageCollection>
     </PropertyGroup>
 
-    <Target Name="CopyModule" AfterTargets="Build">
+    <Target Name="CopyModule" AfterTargets="Build" Condition="'$(CopyModule)' == 'true'">
         <Copy SourceFiles="$(TargetDir)\OpenShock.LocalRelay.dll"
               DestinationFolder="$(APPDATA)\OpenShock\Desktop\modules\openshock.localrelay\"
               OverwriteReadOnlyFiles="true" />
