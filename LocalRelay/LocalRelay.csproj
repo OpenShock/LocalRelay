@@ -20,7 +20,7 @@
 
     <ItemGroup>
         <PackageReference Include="CircularBuffer" Version="1.4.0" />
-<!--        <PackageReference Include="OpenShock.Desktop.ModuleBase" Version="1.0.0-preview.1" />-->
+        <PackageReference Include="OpenShock.Desktop.ModuleBase" Version="1.0.0-preview.3" />
         <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.34" />
         <PackageReference Include="OpenShock.SDK.CSharp.Live" Version="0.0.33" />
         <PackageReference Include="OpenShock.Serialization.Flatbuffers" Version="1.0.0" />
@@ -47,12 +47,6 @@
       <UpToDateCheckInput Remove="Ui\ErrorHandling\CodeBlock.razor" />
       <UpToDateCheckInput Remove="Ui\ErrorHandling\ContainerWithExceptionHandling.razor" />
       <UpToDateCheckInput Remove="Ui\ErrorHandling\ExceptionView.razor" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Reference Include="OpenShock.Desktop.ModuleBase">
-        <HintPath>..\..\Desktop\ModuleBase\bin\Debug\net9.0\OpenShock.Desktop.ModuleBase.dll</HintPath>
-      </Reference>
     </ItemGroup>
     
     <PropertyGroup>
