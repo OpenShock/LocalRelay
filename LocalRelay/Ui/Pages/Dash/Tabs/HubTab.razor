@@ -12,14 +12,14 @@
 
     <span>
     
-    <MudSelect T="string" Variant="Variant.Outlined" Label="Hub" @bind-Value="_selectedDevice" @bind-Value:after="SelectedDeviceChanged">
-        @foreach (var device in OpenShockService.Data.Hubs.Value)
-        {
-            <MudSelectItem Value="@device.Id.ToString()">@device.Name</MudSelectItem>
-        }
-    </MudSelect>
-
-    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Primary" Style="margin-right: 10px;">Disconnect</MudButton>
+        <MudSelect T="Guid" Variant="Variant.Outlined" Label="Hub" @bind-Value="_selectedDevice" @bind-Value:after="SelectedDeviceChanged">
+            <MudSelectItem Value="Guid.Empty">None (Disable)</MudSelectItem>
+            @foreach (var device in OpenShockService.Data.Hubs.Value)
+            {
+                <MudSelectItem Value="@device.Id">@device.Name</MudSelectItem>
+            }
+        </MudSelect>
+        
     </span>
     <div>
         <MudIcon Color="GetConnectionStateColor(FlowManager.State.Value)" Icon="@Icons.Material.Filled.CheckCircle"></MudIcon>
@@ -33,12 +33,12 @@
     [ModuleInject] private IOpenShockService OpenShockService { get; set; } = null!;
     [ModuleInject] private FlowManager FlowManager { get; set; } = null!;
     
-    private string _selectedDevice = string.Empty;
+    private Guid _selectedDevice = Guid.Empty;
     private IAsyncDisposable _flowUpdatedSubscription = null!;
 
     protected override async Task OnInitializedAsync()
     {
-        _selectedDevice = FlowManager.Id != Guid.Empty ? FlowManager.Id.ToString() : string.Empty;
+        _selectedDevice = FlowManager.HubId;
 
         _flowUpdatedSubscription = await FlowManager.State.Updated.SubscribeAsync(state => InvokeAsync(StateHasChanged));
     }
@@ -55,16 +55,7 @@
 
     private async Task SelectedDeviceChanged()
     {
-        if (string.IsNullOrEmpty(_selectedDevice)) return;
-
-
-        if (!Guid.TryParse(_selectedDevice, out var guid))
-        {
-            Logger.LogError("Failed to parse device guid");
-            return;
-        }
-
-        await FlowManager.SelectedDeviceChanged(guid);
+        await FlowManager.SelectedDeviceChanged(_selectedDevice);
     }
 
     public async ValueTask DisposeAsync()

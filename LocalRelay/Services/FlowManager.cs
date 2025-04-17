@@ -5,6 +5,7 @@ using OpenShock.Desktop.ModuleBase.Api;
 using OpenShock.Desktop.ModuleBase.Config;
 using OpenShock.LocalRelay.Config;
 using OpenShock.LocalRelay.Models.Serial;
+using OpenShock.MinimalEvents;
 using OpenShock.SDK.CSharp.Live.LiveControlModels;
 using OpenShock.SDK.CSharp.Updatables;
 using OpenShock.SDK.CSharp.Utils;
@@ -20,13 +21,14 @@ public sealed class FlowManager
     private readonly ILogger<SerialPortClient> _serialPortClientLogger;
     private readonly IOpenShockService _openShockService;
 
-    public Guid Id { get; private set; } = Guid.Empty;
+    public Guid HubId { get; private set; } = Guid.Empty;
 
     public DeviceConnection? DeviceConnection { get; private set; } = null;
     public SerialPortClient? SerialPortClient { get; private set; } = null;
     
+    public IAsyncMinimalEventObservable OnConsoleBufferUpdate => _onConsoleBufferUpdate;
+    private readonly AsyncMinimalEvent _onConsoleBufferUpdate = new();
     
-    public event Func<Task>? OnConsoleUpdate;
     
     private readonly AsyncUpdatableVariable<WebsocketConnectionState> _state =
         new(WebsocketConnectionState.Disconnected);
@@ -54,6 +56,18 @@ public sealed class FlowManager
     
     public async Task SelectedDeviceChanged(Guid id)
     {
+        _config.Config.Hub.Hub = id;
+        await _config.Save();
+        
+        HubId = id;
+        
+        if (HubId == Guid.Empty)
+        {
+            _logger.LogError("Id is empty, stopping connection");
+            await StopHubConnection();
+            return;
+        }
+        
         _logger.LogInformation("Selected device changed to {Id}", id);
         var deviceDetails = await _openShockService.Api.GetHub(id);
 
@@ -69,7 +83,7 @@ public sealed class FlowManager
             
             _logger.LogDebug("Starting device connection");
 
-            await StartDeviceConnection(id, token);
+            await StartHubConnection(id, token);
             return;
         }
 
@@ -86,18 +100,18 @@ public sealed class FlowManager
         throw new Exception("Unhandled OneOf type");
     }
 
-    public async Task StartDeviceConnection(Guid id, string authToken)
+    private async Task<bool> StopHubConnection()
     {
-        if (DeviceConnection != null)
-        {
-            await DeviceConnection.DisposeAsync();
-            DeviceConnection = null;
-        }
-        
-        Id = id;
+        if (DeviceConnection == null) return false;
+        await DeviceConnection.DisposeAsync();
+        DeviceConnection = null;
         _state.Value = WebsocketConnectionState.Disconnected;
-        _config.Config.Hub.Hub = id;
-        await _config.Save();
+        return true;
+    }
+
+    private async Task StartHubConnection(Guid id, string authToken)
+    {
+        await StopHubConnection();
         
         DeviceConnection =
             new DeviceConnection(_openShockService.Auth.BackendBaseUri, authToken, _deviceConnectionLogger);
@@ -125,17 +139,20 @@ public sealed class FlowManager
         }));
         await Task.WhenAll(transmitTasks);
     }
+    
+    private IAsyncDisposable? _onConsoleBufferUpdateDisposable = null;
 
     public async Task ConnectSerialPort(string portName)
     {
         if (SerialPortClient != null)
         {
+            if(_onConsoleBufferUpdateDisposable != null) await _onConsoleBufferUpdateDisposable.DisposeAsync();
             await SerialPortClient.DisposeAsync();
             SerialPortClient = null;
         }
         
         SerialPortClient = new SerialPortClient(_serialPortClientLogger, portName);
-        SerialPortClient.OnConsoleBufferUpdate += OnConsoleUpdate.Raise;
+        _onConsoleBufferUpdateDisposable = await SerialPortClient.OnConsoleBufferUpdate.SubscribeAsync(_onConsoleBufferUpdate.InvokeAsyncParallel);
         await SerialPortClient.Open();
     }
 }

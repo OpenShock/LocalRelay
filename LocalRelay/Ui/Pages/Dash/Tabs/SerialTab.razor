@@ -1,6 +1,6 @@
 ﻿@using OpenShock.Desktop.ModuleBase
 @using OpenShock.LocalRelay.Services
-@implements IDisposable
+@implements IAsyncDisposable
 
 @page "/dash/serial"
 
@@ -55,17 +55,13 @@
     
     private MudTextField<string> _terminalInputField = null!;
     private MudTextField<string> _bogus = null!;
-    
+    private IAsyncDisposable _consoleBufferUpdateSubscription = null!;
 
-    protected override void OnInitialized()
+
+    protected override async Task OnInitializedAsync()
     {
         RefreshSerialPorts();
-        FlowManager.OnConsoleUpdate += FlowManagerOnOnConsoleUpdate;
-    }
-
-    private Task FlowManagerOnOnConsoleUpdate()
-    {
-        return InvokeAsync(StateHasChanged);
+        _consoleBufferUpdateSubscription = await FlowManager.OnConsoleBufferUpdate.SubscribeAsync(() => InvokeAsync(StateHasChanged));
     }
 
     private void RefreshSerialPorts()
@@ -86,15 +82,19 @@
         FlowManager.SerialPortClient?.QueueCommand(_terminalInput + "\r\n");
         _terminalInput = string.Empty;
         await _terminalInputField.Clear();
-        await _bogus.InputReference.ElementReference.FocusAsync();
-        await _terminalInputField.InputReference.ElementReference.FocusAsync();
+        await _bogus.InputReference!.ElementReference.FocusAsync();
+        await _terminalInputField.InputReference!.ElementReference.FocusAsync();
         
         await InvokeAsync(StateHasChanged);
     }
 
-    public void Dispose()
+
+    public async ValueTask DisposeAsync()
     {
-        FlowManager.OnConsoleUpdate -= FlowManagerOnOnConsoleUpdate;
+        await _consoleBufferUpdateSubscription.DisposeAsync();
+            
+        await _terminalInputField.DisposeAsync();
+        await _bogus.DisposeAsync();
     }
 
 }
