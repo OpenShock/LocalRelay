@@ -9,6 +9,7 @@ using CircularBuffer;
 using Microsoft.Extensions.Logging;
 using OpenShock.LocalRelay.Models.Serial;
 using OpenShock.LocalRelay.Utils;
+using OpenShock.MinimalEvents;
 using OpenShock.SDK.CSharp.Utils;
 
 namespace OpenShock.LocalRelay;
@@ -23,9 +24,14 @@ public sealed class SerialPortClient : IAsyncDisposable
     private readonly Subject<byte> _terminalUpdate = new();
 
     public readonly CircularBuffer<string> RxConsoleBuffer = new(1000);
-    public event Func<Task>? OnConsoleBufferUpdate;
 
-    public event Func<Task>? OnClose;
+    public IAsyncMinimalEventObservable OnConsoleBufferUpdate => _onConsoleBufferUpdate;
+    private readonly AsyncMinimalEvent _onConsoleBufferUpdate = new();
+
+    public IAsyncMinimalEventObservable OnClose => _onClose;
+    private readonly AsyncMinimalEvent _onClose = new();
+    
+
 
     private readonly Channel<byte[]> _txChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions()
     {
@@ -39,7 +45,7 @@ public sealed class SerialPortClient : IAsyncDisposable
 
         _terminalUpdate.Throttle(TimeSpan.FromMilliseconds(20)).Subscribe(u =>
         {
-            OsTask.Run(() => OnConsoleBufferUpdate.Raise());
+            OsTask.Run(() => _onConsoleBufferUpdate.InvokeAsyncParallel());
         });
         
         _serialPort = new SerialPort
@@ -69,7 +75,9 @@ public sealed class SerialPortClient : IAsyncDisposable
         _serialPort.Open();
 
 
+#pragma warning disable CS4014
         OsTask.Run(TxLoop);
+
         OsTask.Run(RxLoop);
 
         OsTask.Run(async () =>
@@ -80,12 +88,12 @@ public sealed class SerialPortClient : IAsyncDisposable
             }
             
             _logger.LogTrace("Detected serial port closed, cancelling current CTS");
-
-            OnClose.Raise();
             
-            if (_currentCts == null || _disposed) return;
-            await _currentCts.CancelAsync();
+            if (_currentCts != null && !_disposed) await _currentCts.CancelAsync();
+            
+            await _onClose.InvokeAsyncParallel();
         });
+#pragma warning restore CS4014
     }
 
     public ValueTask QueueCommand(string command)
@@ -233,11 +241,11 @@ public sealed class SerialPortClient : IAsyncDisposable
     }
 
 
-    public void Close()
+    public async Task Close()
     {
         _logger.LogDebug("Closing serial port {PortName}", _serialPort.PortName);
         _serialPort.Close();
-        OnClose.Raise();
+        await _onClose.InvokeAsyncParallel();
     }
     
     
@@ -248,7 +256,14 @@ public sealed class SerialPortClient : IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
 
-        Close();
+        try
+        {
+            await Close();
+        } catch (Exception e)
+        {
+            _logger.LogError(e, "Error during DisposeAsync, Calling Close failed");
+        }
+
         _serialPort.Dispose();
         
         if (_currentCts != null) await _currentCts.CancelAsync();

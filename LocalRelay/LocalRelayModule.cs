@@ -54,12 +54,11 @@ public class LocalRelayModule : DesktopModuleBase
         services.AddSingleton<FlowManager>();
         services.AddSingleton<SerialService>();
         
-        
         return services.BuildServiceProvider();
     }   
 
-    public override Task Start()
+    public override async Task Start()
     {
-        return base.Start();
+        await ModuleServiceProvider.GetRequiredService<FlowManager>().LoadConfigAndStart();
     }
 }

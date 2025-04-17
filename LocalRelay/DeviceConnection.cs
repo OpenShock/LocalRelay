@@ -50,6 +50,7 @@ public sealed class DeviceConnection : IAsyncDisposable
         _linked = CancellationTokenSource.CreateLinkedTokenSource(_dispose.Token);
 
         _httpClient = new HttpClient { BaseAddress = backend };
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", GetUserAgent());
         _httpClient.DefaultRequestHeaders.Add("Device-Token", authToken);
         
         _keepAliveTimer.Elapsed += KeepAliveTimerElapsed;
@@ -232,17 +233,12 @@ public sealed class DeviceConnection : IAsyncDisposable
         var liveClientAssembly = GetType().Assembly;
         var liveClientVersion = liveClientAssembly.GetName().Version!;
 
-        var entryAssembly = Assembly.GetEntryAssembly();
-        var entryAssemblyName = entryAssembly!.GetName();
-        var entryAssemblyVersion = entryAssemblyName.Version;
-
         var runtimeVersion = RuntimeInformation.FrameworkDescription;
         if (string.IsNullOrEmpty(runtimeVersion)) runtimeVersion = "Unknown Runtime";
 
         return
-            $"OpenShock.SDK.CSharp.Live/{liveClientVersion.Major}.{liveClientVersion.Minor}.{liveClientVersion.Build} " +
-            $"({runtimeVersion}; {UserAgentUtils.GetOs()}; " +
-            $"{entryAssemblyName.Name} {entryAssemblyVersion!.Major}.{entryAssemblyVersion.Minor}.{entryAssemblyVersion.Build})";
+            $"LocalRelay/{liveClientVersion.Major}.{liveClientVersion.Minor}.{liveClientVersion.Build} " +
+            $"({runtimeVersion}; {UserAgentUtils.GetOs()})";
     }
 
     private async Task ReceiveLoop()
