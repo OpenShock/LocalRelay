@@ -52,6 +52,13 @@ public sealed class FlowManager
     {
         if (_config.Config.Hub.Hub != null)
             await SelectedDeviceChanged(_config.Config.Hub.Hub.Value);
+        
+        var serialConfig = _config.Config.Serial;
+
+        if (serialConfig.AutoConnect)
+        {
+            await ConnectSerialPort(serialConfig.Port);
+        }
     }
     
     public async Task SelectedDeviceChanged(Guid id)
@@ -142,7 +149,7 @@ public sealed class FlowManager
     
     private IAsyncDisposable? _onConsoleBufferUpdateDisposable = null;
 
-    public async Task ConnectSerialPort(string portName)
+    public async Task ConnectSerialPort(string? portName)
     {
         if (SerialPortClient != null)
         {
@@ -150,6 +157,8 @@ public sealed class FlowManager
             await SerialPortClient.DisposeAsync();
             SerialPortClient = null;
         }
+        
+        if(string.IsNullOrWhiteSpace(portName)) return;
         
         SerialPortClient = new SerialPortClient(_serialPortClientLogger, portName);
         _onConsoleBufferUpdateDisposable = await SerialPortClient.OnConsoleBufferUpdate.SubscribeAsync(_onConsoleBufferUpdate.InvokeAsyncParallel);

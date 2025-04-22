@@ -117,6 +117,7 @@ public sealed class SerialPortClient : IAsyncDisposable
                 {
                     await stream.WriteAsync(channelCommand);
                     await stream.FlushAsync();
+                    _logger.LogDebug("Wrote command to serial port: {Command}", Encoding.ASCII.GetString(channelCommand));
                 }
                 catch (Exception e)
                 {
