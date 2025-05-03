@@ -16,6 +16,8 @@ namespace OpenShock.LocalRelay;
 
 public class LocalRelayModule : DesktopModuleBase
 {
+    public override string IconPath => "OpenShock/LocalRelay/Resources/LocalRelay-Icon.png";
+
     public override IReadOnlyCollection<NavigationItem> NavigationComponents { get; } =
     [
         new()
@@ -39,7 +41,7 @@ public class LocalRelayModule : DesktopModuleBase
         
     }
 
-    private IServiceProvider BuildServices(IModuleConfig<LocalRelayConfig> config)
+    private ServiceProvider BuildServices(IModuleConfig<LocalRelayConfig> config)
     {
         var loggerFactory = ModuleInstanceManager.AppServiceProvider.GetRequiredService<ILoggerFactory>();
         
