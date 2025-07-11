@@ -1,4 +1,5 @@
 ﻿@inject ILogger<SerialTab> Logger
+@using LucHeart.WebsocketLibrary
 @using Microsoft.Extensions.Logging
 @using OpenShock.Desktop.ModuleBase
 @using OpenShock.Desktop.ModuleBase.Api
@@ -47,9 +48,8 @@
         state switch
         {
             WebsocketConnectionState.Connected => Color.Success,
-            WebsocketConnectionState.Reconnecting => Color.Warning,
             WebsocketConnectionState.Connecting => Color.Warning,
-            WebsocketConnectionState.Disconnected => Color.Error,
+            WebsocketConnectionState.WaitingForReconnect => Color.Tertiary,
             _ => Color.Error
         };
 

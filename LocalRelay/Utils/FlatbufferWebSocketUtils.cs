@@ -1,8 +1,8 @@
 ﻿using System.Buffers;
 using System.Net.WebSockets;
 using FlatSharp;
+using Microsoft.IO;
 using OneOf;
-using OpenShock.SDK.CSharp.Live.Utils;
 
 namespace OpenShock.LocalRelay.Utils;
 
@@ -12,6 +12,8 @@ namespace OpenShock.LocalRelay.Utils;
 public static class FlatbufferWebSocketUtils
 {
     private const uint MaxMessageSize = 512_000; // 512 000 bytes
+    
+    public static readonly RecyclableMemoryStreamManager RecyclableMemory = new();
     
     /// <summary>
     /// Receive a websocket message with the given FlatBuffer type
@@ -30,7 +32,7 @@ public static class FlatbufferWebSocketUtils
         try
         {
             ValueWebSocketReceiveResult result;
-            await using var message = JsonWebSocketUtils.RecyclableMemory.GetStream();
+            await using var message = RecyclableMemory.GetStream();
             var bytes = 0;
             do
             {
@@ -105,5 +107,26 @@ public static class FlatbufferWebSocketUtils
             doneBytes += bytesProcessing;
             await socket.SendAsync(buffer, WebSocketMessageType.Binary, doneBytes >= msg.Length, cancelToken);
         }
+    }
+}
+
+public readonly struct WebsocketClosure;
+
+public readonly struct DeserializeFailed
+{
+    public Exception Exception { get; init; }
+    public string Message { get; init; }
+}
+
+public class MessageTooLongException : Exception
+{
+    /// <inheritdoc />
+    public MessageTooLongException()
+    {
+    }
+
+    /// <inheritdoc />
+    public MessageTooLongException(string message) : base(message)
+    {
     }
 }

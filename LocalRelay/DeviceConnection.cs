@@ -1,16 +1,15 @@
 ﻿using System.Net;
 using System.Net.WebSockets;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Channels;
 using System.Timers;
+using LucHeart.WebsocketLibrary;
 using Microsoft.Extensions.Logging;
 using OneOf;
 using OneOf.Types;
 using OpenShock.LocalRelay.Models.Backend;
 using OpenShock.LocalRelay.Utils;
-using OpenShock.SDK.CSharp.Live.LiveControlModels;
 using OpenShock.SDK.CSharp.Updatables;
 using OpenShock.SDK.CSharp.Utils;
 using OpenShock.Serialization.Gateway;
@@ -221,7 +220,7 @@ public sealed class DeviceConnection : IAsyncDisposable
     {
         _logger.LogWarning("Reconnecting in 3 seconds");
         
-        _state.Value = WebsocketConnectionState.Reconnecting;
+        _state.Value = WebsocketConnectionState.Connecting;
         _clientWebSocket?.Abort();
         _clientWebSocket?.Dispose();
         await Task.Delay(3000, _dispose.Token);
@@ -313,7 +312,7 @@ public sealed class DeviceConnection : IAsyncDisposable
         }
 
         _logger.LogWarning("Lost websocket connection, trying to reconnect in 3 seconds");
-        _state.Value = WebsocketConnectionState.Reconnecting;
+        _state.Value = WebsocketConnectionState.Connecting;
 
         _clientWebSocket?.Abort();
         _clientWebSocket?.Dispose();
