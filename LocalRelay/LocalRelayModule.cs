@@ -4,19 +4,21 @@ using Microsoft.Extensions.Logging;
 using MudBlazor;
 using OpenShock.Desktop.ModuleBase;
 using OpenShock.Desktop.ModuleBase.Config;
+using OpenShock.Desktop.ModuleBase.Models;
 using OpenShock.Desktop.ModuleBase.Navigation;
 using OpenShock.LocalRelay;
 using OpenShock.LocalRelay.Config;
 using OpenShock.LocalRelay.Services;
 using OpenShock.LocalRelay.Ui.Pages.Dash.Tabs;
 
+[assembly:RequiredPermission(TokenPermissions.Devices_Auth)]
 [assembly:DesktopModule(typeof(LocalRelayModule), "OpenShock.LocalRelay", "Local Relay")]
 
 namespace OpenShock.LocalRelay;
 
 public class LocalRelayModule : DesktopModuleBase
 {
-    public override string IconPath => "OpenShock/LocalRelay/Resources/LocalRelay-Icon.png";
+    public override IconOneOf Icon => IconOneOf.FromPath("OpenShock/LocalRelay/Resources/LocalRelay-Icon.png");
 
     public override IReadOnlyCollection<NavigationItem> NavigationComponents { get; } =
     [

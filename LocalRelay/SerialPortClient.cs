@@ -149,10 +149,12 @@ public sealed class SerialPortClient : IAsyncDisposable
                 catch (OperationCanceledException)
                 {
                     _logger.LogTrace("RxLoop cancelled. Serial Port Open: {Open} | Cancelled: {Cancelled}", _serialPort.IsOpen, _linkedCts.IsCancellationRequested);
+                    return;
                 }
                 catch (Exception e)
                 {
                     _logger.LogError(e, "Error during RxLoop");
+                    return;
                 }
             }
             
