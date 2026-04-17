@@ -322,8 +322,6 @@ public sealed class DeviceConnection : IAsyncDisposable
         OsTask.Run(ConnectAsync, _dispose.Token);
     }
 
-    private DateTime _lastMessage = DateTime.UtcNow;
-
     private async Task HandleMessage(GatewayToHubMessage? wsRequest)
     {
         if(wsRequest?.Payload is null) return;
@@ -333,10 +331,7 @@ public sealed class DeviceConnection : IAsyncDisposable
         switch (wsRequest.Payload.Value.Kind)
         {
             case GatewayToHubMessagePayload.ItemKind.ShockerCommandList:
-                await OnControlMessage.Raise(wsRequest.Payload.Value.Item1);    
-                Console.WriteLine(DateTime.UtcNow.ToString("O") + " - " + (DateTime.UtcNow - _lastMessage).TotalMilliseconds);
-                
-                _lastMessage = DateTime.UtcNow;
+                await OnControlMessage.Raise(wsRequest.Payload.Value.Item1);
                 break;
         }
     }
