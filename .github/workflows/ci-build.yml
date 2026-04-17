@@ -1,22 +1,13 @@
+name: Build
+
 on:
   push:
-    branches:
-      - '**'
+    branches: ['**']
   pull_request:
-    branches:
-      - '**'
-    types: [opened, reopened, synchronize]
-  workflow_call:
   workflow_dispatch:
-
-name: ci-build
-
-env:
-  DOTNET_VERSION: 10.0.x
-  REGISTRY: ghcr.io
+  workflow_call:
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
 
@@ -24,26 +15,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET SDK ${{ env.DOTNET_VERSION }}
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-version: '10.0.x'
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget
-          restore-keys: |
-            ${{ runner.os }}-nuget
+      - name: Restore
+        run: dotnet restore LocalRelay.sln
 
-      - name: Publish LocalRelay
-        run: dotnet publish LocalRelay/LocalRelay.csproj -c Release -o ./publish/
+      - name: Publish & pack module
+        run: dotnet publish LocalRelay/LocalRelay.csproj --configuration Release -o publish
 
-      - name: Upload LocalRelay artifacts
+      - name: Upload module artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LocalRelay
-          path: publish/*
-          retention-days: 1
+          name: OpenShock.LocalRelay.module
+          path: publish/OpenShock.LocalRelay.module.zip
           if-no-files-found: error
