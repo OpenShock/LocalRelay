@@ -21,7 +21,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore LocalRelay.sln
+        run: dotnet restore LocalRelay.slnx
 
       - name: Publish & pack module
         run: dotnet publish LocalRelay/LocalRelay.csproj --configuration Release -o publish
