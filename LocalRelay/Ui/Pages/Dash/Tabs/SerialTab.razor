@@ -92,7 +92,7 @@
         
         FlowManager.SerialPortClient?.QueueCommand(_terminalInput + "\r\n");
         _terminalInput = string.Empty;
-        await _terminalInputField.Clear();
+        await _terminalInputField.ClearAsync();
         await _bogus.InputReference!.ElementReference.FocusAsync();
         await _terminalInputField.InputReference!.ElementReference.FocusAsync();
         

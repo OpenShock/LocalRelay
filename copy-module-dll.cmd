@@ -1,0 +1,1 @@
+copy LocalRelay\bin\Debug\net10.0\OpenShock.LocalRelay.dll %appdata%\OpenShock\Desktop\modules\openshock.localrelay\OpenShock.LocalRelay.dll

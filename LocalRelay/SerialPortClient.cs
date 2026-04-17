@@ -30,10 +30,12 @@ public sealed class SerialPortClient : IAsyncDisposable
 
     public IAsyncMinimalEventObservable OnClose => _onClose;
     private readonly AsyncMinimalEvent _onClose = new();
-    
 
+    private readonly SemaphoreSlim _txResponseSemaphore = new(0, 1);
 
-    private readonly Channel<byte[]> _txChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions()
+    private readonly record struct TxCommand(byte[] Data, bool WaitForResponse);
+
+    private readonly Channel<TxCommand> _txChannel = Channel.CreateUnbounded<TxCommand>(new UnboundedChannelOptions()
     {
         SingleReader = true
     });
@@ -56,7 +58,11 @@ public sealed class SerialPortClient : IAsyncDisposable
             StopBits = StopBits.One,
             ReadTimeout = 500,
             WriteTimeout = 500,
-            NewLine = "\r\n"
+            WriteBufferSize = 16 * 1024,
+            NewLine = "\r\n",
+            Parity = Parity.None,
+            Handshake = Handshake.None,
+            DtrEnable = true
         };
     }
 
@@ -98,7 +104,7 @@ public sealed class SerialPortClient : IAsyncDisposable
 
     public ValueTask QueueCommand(string command)
     {
-        return _txChannel.Writer.WriteAsync(Encoding.ASCII.GetBytes(command));
+        return _txChannel.Writer.WriteAsync(new TxCommand(Encoding.ASCII.GetBytes(command), false));
     }
 
     private static readonly byte[] Space = [0x20];
@@ -111,13 +117,41 @@ public sealed class SerialPortClient : IAsyncDisposable
 
         try
         {
-            await foreach (var channelCommand in _txChannel.Reader.ReadAllAsync(_linkedCts.Token))
+            await foreach (var txCommand in _txChannel.Reader.ReadAllAsync(_linkedCts.Token))
             {
                 try
                 {
-                    await stream.WriteAsync(channelCommand);
+                    if (txCommand.WaitForResponse)
+                    {
+                        // Drain any stale semaphore signals before writing
+                        await _txResponseSemaphore.WaitAsync(0);
+                    }
+                    
+                    await stream.WriteAsync(txCommand.Data);
                     await stream.FlushAsync();
-                    _logger.LogDebug("Wrote command to serial port: {Command}", Encoding.ASCII.GetString(channelCommand));
+
+                    _logger.LogDebug("Wrote command to serial port: {Command}", Encoding.ASCII.GetString(txCommand.Data));
+
+                    if (txCommand.WaitForResponse)
+                    {
+                        // Wait briefly for the ESP32 to respond
+                        if (!await _txResponseSemaphore.WaitAsync(100, _linkedCts.Token))
+                        {
+                            // Response may be stuck in USB-serial bridge TX buffer.
+                            // Send a bare \r\n to nudge the bridge into flushing.
+                            await stream.WriteAsync(LineEnd);
+                            await stream.FlushAsync();
+
+                            if (!await _txResponseSemaphore.WaitAsync(2000, _linkedCts.Token))
+                            {
+                                _logger.LogWarning("Timed out waiting for device response, proceeding with next command");
+                            }
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch (Exception e)
                 {
@@ -193,16 +227,26 @@ public sealed class SerialPortClient : IAsyncDisposable
                 toWriteChars = lineBreak + 1;
             }
 
+            string completedLine;
             var lastItem = RxConsoleBuffer.IsEmpty ? null : RxConsoleBuffer.Back();
             if (lastItem != null && !lastItem.EndsWith('\n'))
             {
                 var line = remainingChars[..toWriteChars];
                 RxConsoleBuffer.PopBack();
-                RxConsoleBuffer.PushBack(lastItem + line.ToString());
+                completedLine = lastItem + line.ToString();
+                RxConsoleBuffer.PushBack(completedLine);
             }
             else
             {
-                RxConsoleBuffer.PushBack(remainingChars[..toWriteChars].ToString());
+                completedLine = remainingChars[..toWriteChars].ToString();
+                RxConsoleBuffer.PushBack(completedLine);
+            }
+
+            // Signal TxLoop when the device sends a response
+            if (completedLine.Contains("$SYS$|"))
+            {
+                if (_txResponseSemaphore.CurrentCount == 0)
+                    _txResponseSemaphore.Release();
             }
 
             if (toWriteChars < remainingChars.Length)
@@ -234,7 +278,7 @@ public sealed class SerialPortClient : IAsyncDisposable
             command.CopyTo(controlCommand, RfTransmitCommand.Length + Space.Length);
             LineEnd.CopyTo(controlCommand, RfTransmitCommand.Length + Space.Length + command.Length);
 
-            await _txChannel.Writer.WriteAsync(controlCommand);
+            await _txChannel.Writer.WriteAsync(new TxCommand(controlCommand, true));
 
             _logger.LogDebug("Queued rftransmit {@Command}", rfTransmit);
         } catch (Exception e)

@@ -12,7 +12,7 @@ using OpenShock.LocalRelay.Models.Backend;
 using OpenShock.LocalRelay.Utils;
 using OpenShock.SDK.CSharp.Updatables;
 using OpenShock.SDK.CSharp.Utils;
-using OpenShock.Serialization.Gateway;
+using OpenShock.Serialization.Deprecated.DoNotUse.V1;
 using Timer = System.Timers.Timer;
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
@@ -59,7 +59,7 @@ public sealed class DeviceConnection : IAsyncDisposable
     {
         try
         {
-            _logger.LogDebug("Sending keepalive");
+            _logger.LogDebug("Sending keepalive: " + (ulong)(DateTimeOffset.UtcNow - _connectedAt).TotalSeconds);
             await _channel.Writer.WriteAsync(new HubToGatewayMessage
             {
                 Payload = new HubToGatewayMessagePayload(new KeepAlive
@@ -321,8 +321,8 @@ public sealed class DeviceConnection : IAsyncDisposable
 
         OsTask.Run(ConnectAsync, _dispose.Token);
     }
-    
-    DateTime lastMessage = DateTime.UtcNow;
+
+    private DateTime _lastMessage = DateTime.UtcNow;
 
     private async Task HandleMessage(GatewayToHubMessage? wsRequest)
     {
@@ -334,9 +334,9 @@ public sealed class DeviceConnection : IAsyncDisposable
         {
             case GatewayToHubMessagePayload.ItemKind.ShockerCommandList:
                 await OnControlMessage.Raise(wsRequest.Payload.Value.Item1);    
-                Console.WriteLine(DateTime.UtcNow.ToString("O") + " - " + (DateTime.UtcNow - lastMessage).TotalMilliseconds);
+                Console.WriteLine(DateTime.UtcNow.ToString("O") + " - " + (DateTime.UtcNow - _lastMessage).TotalMilliseconds);
                 
-                lastMessage = DateTime.UtcNow;
+                _lastMessage = DateTime.UtcNow;
                 break;
         }
     }

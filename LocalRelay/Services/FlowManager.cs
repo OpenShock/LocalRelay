@@ -7,6 +7,7 @@ using OpenShock.LocalRelay.Models.Serial;
 using OpenShock.MinimalEvents;
 using OpenShock.SDK.CSharp.Updatables;
 using OpenShock.Serialization.Gateway;
+using ShockerCommandList = OpenShock.Serialization.Deprecated.DoNotUse.V1.ShockerCommandList;
 
 namespace OpenShock.LocalRelay.Services;
 
@@ -129,11 +130,11 @@ public sealed class FlowManager
         await DeviceConnection.InitializeAsync().ConfigureAwait(false);
     }
 
-    private async Task OnControlMessage(ShockerCommandList commandList)
+    private async Task OnControlMessage(ShockerCommandList shockerCommandList)
     {
         if (SerialPortClient == null) return;
 
-        var transmitTasks = commandList.Commands.Select(command => SerialPortClient.Control(new RfTransmit
+        var transmitTasks = shockerCommandList.Commands.Select(command => SerialPortClient.Control(new RfTransmit
         {
             Id = command.Id,
             Intensity = command.Intensity,
