@@ -1,6 +1,7 @@
-﻿@using OpenShock.Desktop.ModuleBase
+@using OpenShock.Desktop.ModuleBase
 @using OpenShock.Desktop.ModuleBase.Config
 @using OpenShock.LocalRelay.Config
+@using OpenShock.LocalRelay.Models.Serial
 @using OpenShock.LocalRelay.Services
 @implements IAsyncDisposable
 
@@ -9,14 +10,14 @@
 <MudPaper Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column">
 
     <MudButton OnClick="RefreshSerialPorts" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Primary" Style="margin-right: 10px;">Refresh Serial Ports</MudButton>
-    <MudSelect T="string?" Variant="Variant.Outlined" @bind-Value="_selectedSerialPort" Label="Serial Port" @bind-Value:after="SelectedSerialPortChanged">
-        <MudSelectItem Value="@string.Empty">None</MudSelectItem>
+    <MudSelect T="SerialPortInfo?" Variant="Variant.Outlined" @bind-Value="_selectedSerialPort" Label="Serial Port" @bind-Value:after="SelectedSerialPortChanged" ToStringFunc="FormatPortInfo">
+        <MudSelectItem T="SerialPortInfo?" Value="@((SerialPortInfo?)null)">None</MudSelectItem>
         @foreach (var port in _serialPorts)
         {
-            <MudSelectItem Value="@port">@port</MudSelectItem>
+            <MudSelectItem T="SerialPortInfo?" Value="@port">@FormatPortInfo(port)</MudSelectItem>
         }
     </MudSelect>
-    
+
     <MudCheckBox @bind-Value="@ModuleConfig.Config.Serial.AutoConnect" @bind-Value:after="ValueChangedCallback">Auto Connect</MudCheckBox>
 
     <br/>
@@ -41,9 +42,9 @@
                 }
             </pre>
         </div>
-        
+
         <MudTextField Style="height: 0; width: 0;" @ref="_bogus" T="string"></MudTextField>
-        
+
         <MudTextField
             @ref="_terminalInputField" @bind-Value="@_terminalInput" Immediate="true"/>
     </MudPaper>
@@ -54,11 +55,11 @@
     [ModuleInject] private FlowManager FlowManager { get; set; } = null!;
     [ModuleInject] private SerialService SerialService { get; set; } = null!;
     [ModuleInject] private IModuleConfig<LocalRelayConfig> ModuleConfig { get; set; } = null!;
-    
-    private string? _selectedSerialPort;
-    private string[] _serialPorts = [];
+
+    private SerialPortInfo? _selectedSerialPort;
+    private SerialPortInfo[] _serialPorts = [];
     private string _terminalInput = string.Empty;
-    
+
     private MudTextField<string> _terminalInputField = null!;
     private MudTextField<string> _bogus = null!;
     private IAsyncDisposable _consoleBufferUpdateSubscription = null!;
@@ -66,8 +67,16 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _selectedSerialPort = ModuleConfig.Config.Serial.Port;
         RefreshSerialPorts();
+
+        // Restore selection from config by matching VID/PID or port name
+        var serialConfig = ModuleConfig.Config.Serial;
+        if (serialConfig.Vid != null && serialConfig.Pid != null)
+        {
+            _selectedSerialPort = _serialPorts.FirstOrDefault(p => p.Vid == serialConfig.Vid && p.Pid == serialConfig.Pid);
+        }
+        _selectedSerialPort ??= _serialPorts.FirstOrDefault(p => p.Port == serialConfig.Port);
+
         _consoleBufferUpdateSubscription = await FlowManager.OnConsoleBufferUpdate.SubscribeAsync(() => InvokeAsync(StateHasChanged));
     }
 
@@ -78,24 +87,33 @@
 
     private async Task SelectedSerialPortChanged()
     {
-        var serialConfig = ModuleConfig.Config.Serial;
-        
-        serialConfig.Port = _selectedSerialPort;
-        await ModuleConfig.Save();
-        
+        if (_selectedSerialPort == null)
+        {
+            await FlowManager.DisconnectSerialPort();
+            return;
+        }
+
         await FlowManager.ConnectSerialPort(_selectedSerialPort);
+    }
+
+    private static string FormatPortInfo(SerialPortInfo? port)
+    {
+        if (port == null) return "None";
+        var vidPid = port.Vid != null && port.Pid != null ? $" [{port.Vid:X4}:{port.Pid:X4}]" : "";
+        if (port.Name != port.Port) return $"{port.Name} ({port.Port}){vidPid}";
+        return $"{port.Port}{vidPid}";
     }
 
     private async Task InputKey(KeyboardEventArgs e)
     {
         if (e.Code is not ("Enter" or "NumpadEnter")) return;
-        
+
         FlowManager.SerialPortClient?.QueueCommand(_terminalInput + "\r\n");
         _terminalInput = string.Empty;
         await _terminalInputField.ClearAsync();
         await _bogus.InputReference!.ElementReference.FocusAsync();
         await _terminalInputField.InputReference!.ElementReference.FocusAsync();
-        
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -103,7 +121,7 @@
     public async ValueTask DisposeAsync()
     {
         await _consoleBufferUpdateSubscription.DisposeAsync();
-            
+
         await _terminalInputField.DisposeAsync();
         await _bogus.DisposeAsync();
     }
