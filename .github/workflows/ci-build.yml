@@ -27,7 +27,7 @@ jobs:
         run: dotnet publish LocalRelay/LocalRelay.csproj --configuration Release -o publish
 
       - name: Upload module artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: OpenShock.LocalRelay.module
           path: publish/OpenShock.LocalRelay.module.zip
