@@ -11,16 +11,16 @@ updates:
     directory: "/"
     schedule:
       interval: 'weekly'
-      day: 'monday'
-      time: '06:00'
+      day: tuesday
+      time: '08:00'
 
   # Check for Nuget package updates
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
       interval: 'weekly'
-      day: 'monday'
-      time: '06:00'
+      day: tuesday
+      time: '08:00'
     groups:
       nuget-dependencies:
         patterns:
