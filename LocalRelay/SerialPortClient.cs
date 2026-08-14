@@ -11,6 +11,7 @@ using OpenShock.LocalRelay.Models.Serial;
 using OpenShock.LocalRelay.Utils;
 using OpenShock.MinimalEvents;
 using OpenShock.SDK.CSharp.Utils;
+using OpenShock.Internal.Common.Utils;
 
 namespace OpenShock.LocalRelay;
 

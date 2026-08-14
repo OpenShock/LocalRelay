@@ -22,6 +22,7 @@
     <ItemGroup>
         <PackageReference Include="CircularBuffer" Version="1.4.0" />
         <PackageReference Include="OpenShock.Desktop.ModuleBase" Version="1.1.4" />
+        <PackageReference Include="OpenShock.Internal.Common" Version="1.1.0" />
         <PackageReference Include="OpenShock.SDK.CSharp" Version="0.0.42" />
         <PackageReference Include="OpenShock.SDK.CSharp.Live" Version="0.0.42" />
         <PackageReference Include="OpenShock.Serialization.Flatbuffers" Version="2.1.0" />
