@@ -6,6 +6,7 @@ using OpenShock.Desktop.ModuleBase;
 using OpenShock.Desktop.ModuleBase.Config;
 using OpenShock.Desktop.ModuleBase.Models;
 using OpenShock.Desktop.ModuleBase.Navigation;
+using OpenShock.Internal.Common.Utils;
 using OpenShock.LocalRelay;
 using OpenShock.LocalRelay.Config;
 using OpenShock.LocalRelay.Services;
@@ -61,8 +62,21 @@ public class LocalRelayModule : DesktopModuleBase
         return services.BuildServiceProvider();
     }   
 
-    public override async Task Start()
+    public override Task Start()
     {
-        await ModuleServiceProvider.GetRequiredService<FlowManager>().LoadConfigAndStart();
+        OsTask.Run(async () =>
+        {
+            try
+            {
+                await ModuleServiceProvider.GetRequiredService<FlowManager>().LoadConfigAndStart();
+            }
+            catch (Exception e)
+            {
+                var logger = ModuleServiceProvider.GetRequiredService<ILogger<LocalRelayModule>>();
+                logger.LogError(e, "Error during LocalRelayModule startup");
+            }
+        });
+
+        return Task.CompletedTask;
     }
 }

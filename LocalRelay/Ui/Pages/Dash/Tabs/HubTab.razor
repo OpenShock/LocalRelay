@@ -1,39 +1,56 @@
-﻿@inject ILogger<SerialTab> Logger
 @using LucHeart.WebsocketLibrary
-@using Microsoft.Extensions.Logging
 @using OpenShock.Desktop.ModuleBase
 @using OpenShock.Desktop.ModuleBase.Api
 @using OpenShock.LocalRelay.Services
-@using OpenShock.SDK.CSharp.Live.LiveControlModels
+@using OpenShock.LocalRelay.Ui.Components
 @implements IAsyncDisposable
 
 @page "/dash/hub"
 
-<MudPaper Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column">
+<PageContainer MaxWidth="@PageContainer.NarrowWidth">
 
-    <span>
-    
-        <MudSelect T="Guid" Variant="Variant.Outlined" Label="Hub" @bind-Value="_selectedDevice" @bind-Value:after="SelectedDeviceChanged">
-            <MudSelectItem Value="Guid.Empty">None (Disable)</MudSelectItem>
-            @foreach (var device in OpenShockService.Data.Hubs.Value)
-            {
-                <MudSelectItem Value="@device.Id">@device.Name</MudSelectItem>
-            }
-        </MudSelect>
-        
-    </span>
-    <div>
-        <MudIcon Color="GetConnectionStateColor(FlowManager.State.Value)" Icon="@Icons.Material.Filled.CheckCircle"></MudIcon>
-        @FlowManager.State.Value
-    </div>
+    @* The page title is the answer to the question you opened the tab to ask. *@
+    <TitleContent>
+        <div class="d-flex align-center gap-4">
+            <span class="@BeaconClass" style="@($"color: var(--mud-palette-{BeaconPalette});")"></span>
+            <div>
+                <MudText Typo="Typo.h5">@StatusHeadline</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@StatusDetail</MudText>
+            </div>
+        </div>
+    </TitleContent>
 
-</MudPaper>
+    <ChildContent>
+
+        <SectionCard Icon="@Icons.Material.Filled.Hub" Title="Hub">
+            <HeaderContent>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@ConnectionState</MudText>
+            </HeaderContent>
+            <ChildContent>
+                <LabeledRow Label="Relayed hub"
+                            Description="The hub this machine pretends to be. Its commands get forwarded to the serial device.">
+                    <MudSelect T="Guid" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Style="width: 240px;" @bind-Value="_selectedDevice"
+                               @bind-Value:after="SelectedDeviceChanged">
+                        <MudSelectItem Value="Guid.Empty">None (Disable)</MudSelectItem>
+                        @foreach (var device in OpenShockService.Data.Hubs.Value)
+                        {
+                            <MudSelectItem Value="@device.Id">@device.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </LabeledRow>
+            </ChildContent>
+        </SectionCard>
+
+    </ChildContent>
+
+</PageContainer>
 
 @code {
 
     [ModuleInject] private IOpenShockService OpenShockService { get; set; } = null!;
     [ModuleInject] private FlowManager FlowManager { get; set; } = null!;
-    
+
     private Guid _selectedDevice = Guid.Empty;
     private IAsyncDisposable _flowUpdatedSubscription = null!;
 
@@ -44,14 +61,66 @@
         _flowUpdatedSubscription = await FlowManager.State.Updated.SubscribeAsync(state => InvokeAsync(StateHasChanged));
     }
 
-    private static Color GetConnectionStateColor(WebsocketConnectionState state) =>
-        state switch
+    #region Status
+
+    private WebsocketConnectionState ConnectionState => FlowManager.State.Value;
+
+    private bool HubSelected => _selectedDevice != Guid.Empty;
+
+    private string StatusHeadline
+    {
+        get
         {
-            WebsocketConnectionState.Connected => Color.Success,
-            WebsocketConnectionState.Connecting => Color.Warning,
-            WebsocketConnectionState.WaitingForReconnect => Color.Tertiary,
-            _ => Color.Error
-        };
+            if (!HubSelected) return "No hub selected";
+
+            return ConnectionState switch
+            {
+                WebsocketConnectionState.Connected => "Relaying",
+                WebsocketConnectionState.Connecting => "Connecting",
+                WebsocketConnectionState.WaitingForReconnect => "Reconnecting",
+                _ => "Not connected"
+            };
+        }
+    }
+
+    private string StatusDetail
+    {
+        get
+        {
+            if (!HubSelected) return "Pick a hub below to start relaying its commands.";
+
+            return ConnectionState switch
+            {
+                WebsocketConnectionState.Connected => "Connected to the gateway, commands are being forwarded.",
+                WebsocketConnectionState.Connecting => "Reaching the OpenShock gateway.",
+                WebsocketConnectionState.WaitingForReconnect => "Lost the gateway, backing off before the next try.",
+                _ => "Not connected to the OpenShock gateway."
+            };
+        }
+    }
+
+    /// <summary>Pulses while a connection is being worked on, so waiting reads as activity.</summary>
+    private string BeaconClass =>
+        ConnectionState is WebsocketConnectionState.Connecting or WebsocketConnectionState.WaitingForReconnect
+            ? "status-beacon pulsing"
+            : "status-beacon";
+
+    private string BeaconPalette
+    {
+        get
+        {
+            if (!HubSelected) return "info";
+
+            return ConnectionState switch
+            {
+                WebsocketConnectionState.Connected => "success",
+                WebsocketConnectionState.Connecting or WebsocketConnectionState.WaitingForReconnect => "warning",
+                _ => "error"
+            };
+        }
+    }
+
+    #endregion
 
     private async Task SelectedDeviceChanged()
     {

@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+using System.Buffers;
 using System.IO.Ports;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -34,6 +34,8 @@ public sealed class SerialPortClient : IAsyncDisposable
 
     private readonly SemaphoreSlim _txResponseSemaphore = new(0, 1);
 
+    private int _closeSignalled;
+
     private readonly record struct TxCommand(byte[] Data, bool WaitForResponse);
 
     private readonly Channel<TxCommand> _txChannel = Channel.CreateUnbounded<TxCommand>(new UnboundedChannelOptions()
@@ -50,7 +52,7 @@ public sealed class SerialPortClient : IAsyncDisposable
         {
             OsTask.Run(() => _onConsoleBufferUpdate.InvokeAsyncParallel());
         });
-        
+
         _serialPort = new SerialPort
         {
             PortName = portName,
@@ -77,30 +79,35 @@ public sealed class SerialPortClient : IAsyncDisposable
 
         _currentCts = new CancellationTokenSource();
         _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token, _currentCts.Token);
+        Interlocked.Exchange(ref _closeSignalled, 0);
 
         _logger.LogInformation("Opening serial port {PortName}", _serialPort.PortName);
         _serialPort.Open();
 
+        var token = _linkedCts.Token;
 
-#pragma warning disable CS4014
-        OsTask.Run(TxLoop);
+        _ = OsTask.Run(() => TxLoop(token));
 
-        OsTask.Run(RxLoop);
+        _ = OsTask.Run(() => RxLoop(token));
 
-        OsTask.Run(async () =>
+        // Catches the port being closed without an IO error ever surfacing on the Rx side.
+        _ = OsTask.Run(async () =>
         {
-            while (_serialPort.IsOpen)
+            try
             {
-                await Task.Delay(100);
+                while (_serialPort.IsOpen)
+                {
+                    await Task.Delay(100, token);
+                }
             }
-            
-            _logger.LogTrace("Detected serial port closed, cancelling current CTS");
-            
-            if (_currentCts != null && !_disposed) await _currentCts.CancelAsync();
-            
-            await _onClose.InvokeAsyncParallel();
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            _logger.LogTrace("Detected serial port closed");
+            await SignalClosed();
         });
-#pragma warning restore CS4014
     }
 
     public ValueTask QueueCommand(string command)
@@ -112,13 +119,47 @@ public sealed class SerialPortClient : IAsyncDisposable
     private static readonly byte[] RfTransmitCommand = "rftransmit"u8.ToArray();
     private static readonly byte[] LineEnd = "\r\n"u8.ToArray();
 
-    private async Task TxLoop()
+    /// <summary>
+    /// Fires <see cref="OnClose"/> exactly once for this client and cancels its loops. Every path
+    /// that notices the port is gone funnels through here, otherwise a yanked USB cable leaves the
+    /// relay looking connected forever.
+    /// </summary>
+    private async Task SignalClosed()
     {
-        var stream = _serialPort.BaseStream;
+        if (Interlocked.Exchange(ref _closeSignalled, 1) != 0) return;
+
+        _logger.LogDebug("Serial port {PortName} closed", _serialPort.PortName);
+
+        var cts = _currentCts;
+        if (cts != null)
+        {
+            try
+            {
+                if (!cts.IsCancellationRequested) await cts.CancelAsync();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already torn down
+            }
+        }
 
         try
         {
-            await foreach (var txCommand in _txChannel.Reader.ReadAllAsync(_linkedCts.Token))
+            await _onClose.InvokeAsyncParallel();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error while invoking OnClose");
+        }
+    }
+
+    private async Task TxLoop(CancellationToken token)
+    {
+        try
+        {
+            var stream = _serialPort.BaseStream;
+
+            await foreach (var txCommand in _txChannel.Reader.ReadAllAsync(token))
             {
                 try
                 {
@@ -127,23 +168,23 @@ public sealed class SerialPortClient : IAsyncDisposable
                         // Drain any stale semaphore signals before writing
                         await _txResponseSemaphore.WaitAsync(0);
                     }
-                    
-                    await stream.WriteAsync(txCommand.Data);
-                    await stream.FlushAsync();
+
+                    await stream.WriteAsync(txCommand.Data, token);
+                    await stream.FlushAsync(token);
 
                     _logger.LogDebug("Wrote command to serial port: {Command}", Encoding.ASCII.GetString(txCommand.Data));
 
                     if (txCommand.WaitForResponse)
                     {
                         // Wait briefly for the ESP32 to respond
-                        if (!await _txResponseSemaphore.WaitAsync(100, _linkedCts.Token))
+                        if (!await _txResponseSemaphore.WaitAsync(100, token))
                         {
                             // Response may be stuck in USB-serial bridge TX buffer.
                             // Send a bare \r\n to nudge the bridge into flushing.
-                            await stream.WriteAsync(LineEnd);
-                            await stream.FlushAsync();
+                            await stream.WriteAsync(LineEnd, token);
+                            await stream.FlushAsync(token);
 
-                            if (!await _txResponseSemaphore.WaitAsync(2000, _linkedCts.Token))
+                            if (!await _txResponseSemaphore.WaitAsync(2000, token))
                             {
                                 _logger.LogWarning("Timed out waiting for device response, proceeding with next command");
                             }
@@ -154,6 +195,17 @@ public sealed class SerialPortClient : IAsyncDisposable
                 {
                     throw;
                 }
+                catch (IOException e)
+                {
+                    // The port is gone, no point draining the rest of the queue into it.
+                    _logger.LogError(e, "IO error during TxLoop, closing serial port");
+                    break;
+                }
+                catch (InvalidOperationException e)
+                {
+                    _logger.LogError(e, "Serial port no longer open during TxLoop");
+                    break;
+                }
                 catch (Exception e)
                 {
                     _logger.LogError(e, "Error during TxLoop");
@@ -163,37 +215,47 @@ public sealed class SerialPortClient : IAsyncDisposable
         catch (OperationCanceledException)
         {
             _logger.LogTrace("TxLoop cancelled");
+            return;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Fatal error during TxLoop");
         }
 
         _logger.LogDebug("TxLoop exited");
+        await SignalClosed();
     }
 
-    private async Task RxLoop()
+    private async Task RxLoop(CancellationToken token)
     {
         var buffer = ArrayPool<byte>.Shared.Rent(4096);
         try
         {
-            while (_serialPort.IsOpen && !_linkedCts.IsCancellationRequested)
+            while (_serialPort.IsOpen && !token.IsCancellationRequested)
             {
                 try
                 {
-                    var data = await _serialPort.BaseStream.ReadAsync(buffer, _linkedCts.Token);
+                    var data = await _serialPort.BaseStream.ReadAsync(buffer, token);
                     HandleRxChars(buffer.AsSpan()[..data]);
                     _terminalUpdate.OnNext(0);
                 }
                 catch (OperationCanceledException)
                 {
-                    _logger.LogTrace("RxLoop cancelled. Serial Port Open: {Open} | Cancelled: {Cancelled}", _serialPort.IsOpen, _linkedCts.IsCancellationRequested);
+                    _logger.LogTrace("RxLoop cancelled. Serial Port Open: {Open} | Cancelled: {Cancelled}", _serialPort.IsOpen, token.IsCancellationRequested);
                     return;
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, "Error during RxLoop");
-                    return;
+                    // Unplugging the device lands here. SerialPort.IsOpen stays true afterwards,
+                    // so the close has to be signalled from this path or nothing ever reconnects.
+                    _logger.LogError(e, "Error during RxLoop, closing serial port");
+                    break;
                 }
             }
-            
-            _logger.LogTrace("Serial Port exited. Serial Port Open: {Open} | Cancelled: {Cancelled}", _serialPort.IsOpen, _linkedCts.IsCancellationRequested);
+
+            _logger.LogTrace("Serial Port exited. Serial Port Open: {Open} | Cancelled: {Cancelled}", _serialPort.IsOpen, token.IsCancellationRequested);
+
+            await SignalClosed();
         }
         finally
         {
@@ -208,9 +270,9 @@ public sealed class SerialPortClient : IAsyncDisposable
         if(charsToWrite < 1) return;
 
         Span<char> newCharArray = stackalloc char[charsToWrite];
-        
+
         Encoding.ASCII.TryGetChars(newCharsSpan, newCharArray, out _);
-        
+
         AddToConsoleBuffer(newCharArray);
     }
 
@@ -292,11 +354,20 @@ public sealed class SerialPortClient : IAsyncDisposable
     public async Task Close()
     {
         _logger.LogDebug("Closing serial port {PortName}", _serialPort.PortName);
-        _serialPort.Close();
-        await _onClose.InvokeAsyncParallel();
+
+        try
+        {
+            if (_serialPort.IsOpen) _serialPort.Close();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error while closing serial port");
+        }
+
+        await SignalClosed();
     }
-    
-    
+
+
     private bool _disposed;
 
     public async ValueTask DisposeAsync()
@@ -312,11 +383,15 @@ public sealed class SerialPortClient : IAsyncDisposable
             _logger.LogError(e, "Error during DisposeAsync, Calling Close failed");
         }
 
+        _txChannel.Writer.TryComplete();
+
         _serialPort.Dispose();
-        
+
         if (_currentCts != null) await _currentCts.CancelAsync();
         await _disposeCts.CancelAsync();
-        
+
+        _terminalUpdate.Dispose();
+        _txResponseSemaphore.Dispose();
         _linkedCts.Dispose();
         _currentCts?.Dispose();
         _disposeCts.Dispose();

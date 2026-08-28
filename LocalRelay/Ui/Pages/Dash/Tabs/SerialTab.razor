@@ -3,53 +3,99 @@
 @using OpenShock.LocalRelay.Config
 @using OpenShock.LocalRelay.Models.Serial
 @using OpenShock.LocalRelay.Services
+@using OpenShock.LocalRelay.Ui.Components
 @implements IAsyncDisposable
 
 @page "/dash/serial"
 
-<MudPaper Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column">
+<PageContainer MaxWidth="@PageContainer.NarrowWidth">
 
-    <MudButton OnClick="RefreshSerialPorts" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Primary" Style="margin-right: 10px;">Refresh Serial Ports</MudButton>
-    <MudSelect T="SerialPortInfo?" Variant="Variant.Outlined" @bind-Value="_selectedSerialPort" Label="Serial Port" @bind-Value:after="SelectedSerialPortChanged" ToStringFunc="FormatPortInfo">
-        <MudSelectItem T="SerialPortInfo?" Value="@((SerialPortInfo?)null)">None</MudSelectItem>
-        @foreach (var port in _serialPorts)
-        {
-            <MudSelectItem T="SerialPortInfo?" Value="@port">@FormatPortInfo(port)</MudSelectItem>
-        }
-    </MudSelect>
-
-    <MudCheckBox @bind-Value="@ModuleConfig.Config.Serial.AutoConnect" @bind-Value:after="ValueChangedCallback">Auto Connect</MudCheckBox>
-
-    <br/>
-
-    <MudPaper Outlined="true" Class="rounded-lg mud-paper-padding d-flex" Style="position: relative; flex-direction: column; height: 500px" @onkeydown="InputKey">
-
-        <h2>Serial Terminal</h2>
-
-        <div style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; height: 100%">
-
-            <pre>
-                @if (FlowManager.SerialPortClient?.RxConsoleBuffer == null)
-                {
-                    <span>Serial Port is not connected</span>
-                }
-                else
-                {
-                    @foreach (var line in FlowManager.SerialPortClient.RxConsoleBuffer)
-                    {
-                        @line
-                    }
-                }
-            </pre>
+    <TitleContent>
+        <div class="d-flex align-center gap-4">
+            <span class="@BeaconClass" style="@($"color: var(--mud-palette-{BeaconPalette});")"></span>
+            <div>
+                <MudText Typo="Typo.h5">@StatusHeadline</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@StatusDetail</MudText>
+            </div>
         </div>
+    </TitleContent>
 
-        <MudTextField Style="height: 0; width: 0;" @ref="_bogus" T="string"></MudTextField>
+    <ChildContent>
 
-        <MudTextField
-            @ref="_terminalInputField" @bind-Value="@_terminalInput" Immediate="true"/>
-    </MudPaper>
+        <SectionCard Icon="@Icons.Material.Filled.Cable" Title="Serial port">
+            <HeaderContent>
+                <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="RefreshSerialPorts">Refresh
+                </MudButton>
+            </HeaderContent>
+            <ChildContent>
+                <LabeledRow Label="Device" Description="The hub or dev board the RF commands get written to.">
+                    <MudSelect T="SerialPortInfo?" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Style="width: 280px;" @bind-Value="_selectedSerialPort"
+                               @bind-Value:after="SelectedSerialPortChanged" ToStringFunc="FormatPortInfo">
+                        <MudSelectItem T="SerialPortInfo?" Value="@((SerialPortInfo?)null)">None</MudSelectItem>
+                        @foreach (var port in _serialPorts)
+                        {
+                            <MudSelectItem T="SerialPortInfo?" Value="@port">@FormatPortInfo(port)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </LabeledRow>
 
-</MudPaper>
+                <MudDivider/>
+
+                <LabeledRow Label="Auto connect"
+                            Description="Reconnect to the saved device on startup, and whenever it is plugged back in.">
+                    <MudSwitch T="bool" Color="Color.Primary" @bind-Value="@ModuleConfig.Config.Serial.AutoConnect"
+                               @bind-Value:after="ValueChangedCallback"/>
+                </LabeledRow>
+            </ChildContent>
+        </SectionCard>
+
+        <SectionCard Icon="@Icons.Material.Filled.Terminal" Title="Serial terminal" ContentClass="">
+            <HeaderContent>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@TerminalHint</MudText>
+            </HeaderContent>
+            <ChildContent>
+                <div class="terminal-output" @onkeydown="InputKey">
+                    <pre class="terminal-text">@TerminalContent</pre>
+                </div>
+
+                <MudDivider/>
+
+                <div class="px-4 py-2" @onkeydown="InputKey">
+                    <MudTextField Style="height: 0; width: 0;" @ref="_bogus" T="string"></MudTextField>
+
+                    <MudTextField @ref="_terminalInputField" @bind-Value="@_terminalInput" Immediate="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(!IsConnected)"
+                                  Placeholder="@(IsConnected ? "Type a command and press Enter" : "Connect a device to send commands")"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.ChevronRight"/>
+                </div>
+            </ChildContent>
+        </SectionCard>
+
+    </ChildContent>
+
+</PageContainer>
+
+<style>
+    /* Newest output sits at the bottom, so the view is pinned there and grows upwards. */
+    .terminal-output {
+        height: 420px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column-reverse;
+        padding: 8px 16px;
+    }
+
+    .terminal-text {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.8rem;
+        line-height: 1.45;
+    }
+</style>
 
 @code {
     [ModuleInject] private FlowManager FlowManager { get; set; } = null!;
@@ -62,7 +108,7 @@
 
     private MudTextField<string> _terminalInputField = null!;
     private MudTextField<string> _bogus = null!;
-    private IAsyncDisposable _consoleBufferUpdateSubscription = null!;
+    private readonly List<IAsyncDisposable> _subscriptions = [];
 
 
     protected override async Task OnInitializedAsync()
@@ -77,8 +123,61 @@
         }
         _selectedSerialPort ??= _serialPorts.FirstOrDefault(p => p.Port == serialConfig.Port);
 
-        _consoleBufferUpdateSubscription = await FlowManager.OnConsoleBufferUpdate.SubscribeAsync(() => InvokeAsync(StateHasChanged));
+        _subscriptions.Add(await FlowManager.OnConsoleBufferUpdate.SubscribeAsync(() => InvokeAsync(StateHasChanged)));
+
+        // The reconnect loop can attach or lose a device at any time, the header has to follow it.
+        _subscriptions.Add(await FlowManager.SerialConnected.Updated.SubscribeAsync(_ => InvokeAsync(StateHasChanged)));
     }
+
+    #region Status
+
+    private bool IsConnected => FlowManager.SerialPortClient != null;
+
+    private string StatusHeadline => IsConnected ? "Device connected" : "No device connected";
+
+    private string StatusDetail
+    {
+        get
+        {
+            if (IsConnected) return $"Talking to {ConnectedPortLabel}.";
+
+            return ModuleConfig.Config.Serial.AutoConnect
+                ? "Waiting for the saved device to appear. Plug it in and it reconnects on its own."
+                : "Pick a serial device below to forward commands to.";
+        }
+    }
+
+    private string BeaconClass => !IsConnected && ModuleConfig.Config.Serial.AutoConnect
+        ? "status-beacon pulsing"
+        : "status-beacon";
+
+    private string BeaconPalette
+    {
+        get
+        {
+            if (IsConnected) return "success";
+            return ModuleConfig.Config.Serial.AutoConnect ? "warning" : "info";
+        }
+    }
+
+    /// <summary>The device that is actually open, which auto connect may have picked on its own.</summary>
+    private string ConnectedPortLabel =>
+        _selectedSerialPort != null ? FormatPortInfo(_selectedSerialPort) : ModuleConfig.Config.Serial.Port ?? "the device";
+
+    private string TerminalHint => IsConnected ? "Live" : "Disconnected";
+
+    private string TerminalContent
+    {
+        get
+        {
+            var client = FlowManager.SerialPortClient;
+            if (client?.RxConsoleBuffer == null) return "Serial Port is not connected";
+
+            return string.Concat(client.RxConsoleBuffer);
+        }
+    }
+
+    #endregion
 
     private void RefreshSerialPorts()
     {
@@ -107,8 +206,11 @@
     private async Task InputKey(KeyboardEventArgs e)
     {
         if (e.Code is not ("Enter" or "NumpadEnter")) return;
+        if (string.IsNullOrEmpty(_terminalInput)) return;
 
-        FlowManager.SerialPortClient?.QueueCommand(_terminalInput + "\r\n");
+        var client = FlowManager.SerialPortClient;
+        if (client != null) await client.QueueCommand(_terminalInput + "\r\n");
+
         _terminalInput = string.Empty;
         await _terminalInputField.ClearAsync();
         await _bogus.InputReference!.ElementReference.FocusAsync();
@@ -120,7 +222,8 @@
 
     public async ValueTask DisposeAsync()
     {
-        await _consoleBufferUpdateSubscription.DisposeAsync();
+        foreach (var subscription in _subscriptions) await subscription.DisposeAsync();
+        _subscriptions.Clear();
 
         await _terminalInputField.DisposeAsync();
         await _bogus.DisposeAsync();
