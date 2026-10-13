@@ -65,7 +65,9 @@ public sealed class SerialPortClient : IAsyncDisposable
             NewLine = "\r\n",
             Parity = Parity.None,
             Handshake = Handshake.None,
-            DtrEnable = true
+            // ESP32 auto-reset circuits map DTR to GPIO0 and RTS to EN, asserting DTR straps the chip into download mode on any reset.
+            DtrEnable = false,
+            RtsEnable = false
         };
     }
 
